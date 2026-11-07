@@ -2,25 +2,28 @@
 
 # AI 客服 BOT 作品集
 
-一個假的電商網站 + 串接該網站資料的 AI 客服機器人，用於作品集展示。
+虛構服飾品牌「NORTHWEAVE 北織」的電商網站（已完成）+ AI 客服 BOT（下一階段）。
+使用者正在學習架網站：說明要白話、程式碼加中文註解；優先選免費 / 低成本方案。
 
 ## 技術棧
-- **Next.js (App Router) + TypeScript + Tailwind CSS v4**：前台商店與後端 API 同一個專案
-- **資料庫**：Node 內建 `node:sqlite`（不需原生編譯），檔案放在 `data/shop.db`，種子腳本 `scripts/seed.ts`（用 `npx tsx` 執行）
-- **AI**：`@anthropic-ai/sdk`，以 tool use 讓 BOT 查詢商品、訂單、物流、退換貨政策；`zod` 驗證工具輸入
-- 模型由 `CLAUDE_MODEL` 環境變數決定（預設 `claude-sonnet-5-5`）
+- Next.js 16 App Router + TypeScript + Tailwind v4（`cacheComponents` 刻意關閉，用傳統動態渲染）
+- MySQL 8.4（本機安裝在 `~/.local/mysql`，資料在 `~/.local/mysql-data`，`npm run db:start` 啟動）
+- Prisma 7：設定檔是 `prisma7.config.ts`（讀 `.env.local`），client 產生到 `src/generated/prisma`，用 `@prisma/adapter-mariadb`
+- Better Auth（email + 密碼、admin plugin 管角色），Zod 驗證
+- AI：`@anthropic-ai/sdk`，模型由 `CLAUDE_MODEL` 環境變數決定
 
-## 預計目錄
-- `src/app/` 商店頁面（首頁、商品列表/詳情、購物車、訂單查詢）
-- `src/app/api/chat/route.ts` 客服 BOT API（串流回應）
-- `src/lib/db.ts` 資料庫存取；`src/lib/bot/` 系統提示、工具定義與執行
-- `src/components/ChatWidget.tsx` 右下角浮動客服視窗
-- `data/` SQLite 檔與 FAQ/政策文件
+## 慣例
+- 金額一律 Int（新台幣），在伺服器端計算（`src/lib/pricing.ts`）
+- 商業規則集中在 `src/lib/store-config.ts`（運費、鑑賞期、狀態中文標籤）—— BOT 也要讀這份
+- 每個 Server Action 開頭都要 `requireUser()` / `requireAdmin()`，查詢條件帶 `userId` 防越權
+- 改庫存用條件式 `updateMany({ where: { stock: { gte } } })` 防超賣
+- 訂單 / 退換貨狀態變更要寫 `OrderStatusHistory`
 
 ## 指令
-- `npm run dev` 開發伺服器（http://localhost:3000）
-- `npm run build` / `npm run lint`
+- `npm run dev`、`npm run lint`、`npx tsc --noEmit`
+- `npm run db:migrate` / `db:seed` / `db:studio`
+- Demo 帳號見 README
 
 ## 環境
-- Node.js 安裝於 `~/.local/node`（已加入 `~/.zshrc` 的 PATH）
-- 金鑰放 `.env.local`（不進版控），範本見 `.env.example`
+- Node.js 在 `~/.local/node/bin`（已加入 `~/.zshrc`）
+- 金鑰與 DB 連線在 `.env.local`（不進版控）

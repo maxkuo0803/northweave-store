@@ -43,3 +43,5 @@ next-env.d.ts
 # sqlite
 data/*.db
 !.env.example
+
+/src/generated/prisma

@@ -1,0 +1,415 @@
+// NORTHWEAVE 北織 — 服飾電商資料庫結構
+// 金額一律用 Int（新台幣，沒有小數）。
+// 改完這個檔案後執行：npm run db:migrate（會產生 migration 並重新 generate client）
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// ───────────── 會員與登入（Better Auth 需要的四張表 + 我們自訂欄位） ─────────────
+
+model User {
+  id            String    @id
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?   @db.Text
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  // admin plugin 欄位
+  role          String?   @default("user")
+  banned        Boolean?  @default(false)
+  banReason     String?   @db.Text
+  banExpires    DateTime?
+  // 自訂欄位
+  phone         String?
+  birthday      DateTime? @db.Date
+
+  sessions       Session[]
+  accounts       Account[]
+  addresses      Address[]
+  cartItems      CartItem[]
+  wishlist       WishlistItem[]
+  orders         Order[]
+  returnRequests ReturnRequest[]
+  reviews        Review[]
+
+  @@map("user")
+}
+
+model Session {
+  id             String   @id
+  expiresAt      DateTime
+  token          String   @unique
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  ipAddress      String?
+  userAgent      String?  @db.Text
+  userId         String
+  impersonatedBy String?
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  accessToken           String?   @db.Text
+  refreshToken          String?   @db.Text
+  idToken               String?   @db.Text
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?   @db.Text
+  password              String?   @db.Text
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String   @db.Text
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+model Address {
+  id            String  @id @default(cuid())
+  userId        String
+  recipientName String
+  phone         String
+  zipCode       String
+  city          String // 縣市
+  district      String // 鄉鎮市區
+  line          String // 路名門牌
+  isDefault     Boolean @default(false)
+  user          User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ───────────── 商品 ─────────────
+
+enum Gender {
+  MEN
+  WOMEN
+  UNISEX
+}
+
+enum ProductStatus {
+  ACTIVE
+  DRAFT
+  ARCHIVED
+}
+
+model Category {
+  id        String     @id @default(cuid())
+  name      String
+  slug      String     @unique
+  parentId  String?
+  sortOrder Int        @default(0)
+  parent    Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children  Category[] @relation("CategoryTree")
+  products  Product[]
+}
+
+model Product {
+  id          String        @id @default(cuid())
+  name        String
+  slug        String        @unique
+  description String        @db.Text
+  material    String // 材質
+  care        String // 洗滌方式
+  garmentType String // tee / shirt / hoodie / jacket / pants / shorts / skirt / dress / knit / cap / bag
+  gender      Gender
+  price       Int // 原價
+  salePrice   Int? // 特價（null = 沒特價）
+  status      ProductStatus @default(ACTIVE)
+  isFeatured  Boolean       @default(false)
+  categoryId  String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  category Category       @relation(fields: [categoryId], references: [id])
+  variants ProductVariant[]
+  images   ProductImage[]
+  reviews  Review[]
+  wishlist WishlistItem[]
+
+  @@index([categoryId])
+  @@index([status, createdAt])
+}
+
+// 一個 SKU = 一個顏色 × 一個尺寸，庫存記在這裡
+model ProductVariant {
+  id        String  @id @default(cuid())
+  productId String
+  sku       String  @unique
+  color     String // 顏色名稱，例如「燕麥白」
+  colorHex  String // #RRGGBB
+  size      String // XS S M L XL / F
+  stock     Int     @default(0)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  cartItems     CartItem[]
+  orderItems    OrderItem[]
+  exchangeItems ReturnItem[] @relation("ExchangeVariant")
+
+  @@unique([productId, color, size])
+}
+
+model ProductImage {
+  id        String  @id @default(cuid())
+  productId String
+  url       String
+  alt       String
+  color     String? // 對應哪個顏色
+  sortOrder Int     @default(0)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  productId String
+  userId    String
+  rating    Int // 1-5
+  title     String
+  body      String   @db.Text
+  fit       String? // SMALL / TRUE / LARGE 尺寸是否合身
+  createdAt DateTime @default(now())
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([productId])
+}
+
+// ───────────── 購物車 / 收藏 / 優惠券 ─────────────
+
+model CartItem {
+  id        String         @id @default(cuid())
+  userId    String
+  variantId String
+  quantity  Int
+  createdAt DateTime       @default(now())
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  variant   ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, variantId])
+}
+
+model WishlistItem {
+  id        String   @id @default(cuid())
+  userId    String
+  productId String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+}
+
+enum DiscountType {
+  PERCENT // value = 折扣百分比，例如 10 = 打九折
+  FIXED // value = 折抵金額
+}
+
+model Coupon {
+  id          String       @id @default(cuid())
+  code        String       @unique
+  description String
+  type        DiscountType
+  value       Int
+  minSpend    Int          @default(0)
+  startsAt    DateTime
+  endsAt      DateTime
+  usageLimit  Int?
+  usedCount   Int          @default(0)
+  isActive    Boolean      @default(true)
+}
+
+// ───────────── 訂單 ─────────────
+
+enum OrderStatus {
+  PENDING_PAYMENT // 待付款
+  PAID // 已付款
+  PROCESSING // 備貨中
+  SHIPPED // 已出貨
+  DELIVERED // 已送達
+  COMPLETED // 已完成（超過鑑賞期）
+  CANCELLED // 已取消
+}
+
+enum PaymentMethod {
+  CREDIT_CARD
+  LINE_PAY
+  ATM
+  COD // 貨到付款
+}
+
+enum PaymentStatus {
+  UNPAID
+  PAID
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum ShippingMethod {
+  HOME // 宅配
+  CVS // 超商取貨
+}
+
+model Order {
+  id             String         @id @default(cuid())
+  orderNumber    String         @unique // NW + 日期 + 流水號
+  userId         String
+  status         OrderStatus    @default(PENDING_PAYMENT)
+  paymentMethod  PaymentMethod
+  paymentStatus  PaymentStatus  @default(UNPAID)
+  shippingMethod ShippingMethod
+  // 收件資訊快照（下單當下的資料，之後改地址不影響舊訂單）
+  recipientName  String
+  recipientPhone String
+  shippingAddress String // 宅配地址或超商門市名稱
+  subtotal       Int
+  discount       Int            @default(0)
+  shippingFee    Int
+  total          Int
+  couponCode     String?
+  note           String?        @db.Text
+  carrier        String? // 物流商
+  trackingNumber String?
+  placedAt       DateTime       @default(now())
+  paidAt         DateTime?
+  shippedAt      DateTime?
+  deliveredAt    DateTime?
+  cancelledAt    DateTime?
+  updatedAt      DateTime       @updatedAt
+
+  user           User                 @relation(fields: [userId], references: [id])
+  items          OrderItem[]
+  history        OrderStatusHistory[]
+  returnRequests ReturnRequest[]
+
+  @@index([userId, placedAt])
+  @@index([status])
+}
+
+// 訂單明細也是快照：商品改名、改價都不影響已成立的訂單
+model OrderItem {
+  id          String          @id @default(cuid())
+  orderId     String
+  variantId   String?
+  productName String
+  sku         String
+  color       String
+  size        String
+  unitPrice   Int
+  quantity    Int
+  imageUrl    String
+  order       Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  variant     ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  returnItems ReturnItem[]
+
+  @@index([orderId])
+}
+
+model OrderStatusHistory {
+  id        String      @id @default(cuid())
+  orderId   String
+  status    OrderStatus
+  note      String?
+  createdAt DateTime    @default(now())
+  order     Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
+}
+
+// ───────────── 退換貨（RMA） ─────────────
+
+enum ReturnType {
+  RETURN // 退貨退款
+  EXCHANGE // 換貨（換尺寸/顏色）
+}
+
+enum ReturnStatus {
+  REQUESTED // 已申請
+  APPROVED // 已核准，等待寄回
+  REJECTED // 已拒絕
+  RECEIVED // 已收到退回商品
+  REFUNDED // 已退款（退貨完成）
+  EXCHANGED // 已寄出新商品（換貨完成）
+  CANCELLED // 顧客取消
+}
+
+enum ReturnReason {
+  SIZE_TOO_SMALL
+  SIZE_TOO_LARGE
+  DEFECTIVE // 瑕疵
+  WRONG_ITEM // 寄錯商品
+  NOT_AS_DESCRIBED // 與描述不符
+  CHANGED_MIND // 不喜歡 / 改變心意
+}
+
+model ReturnRequest {
+  id           String       @id @default(cuid())
+  rmaNumber    String       @unique // RMA + 流水號
+  orderId      String
+  userId       String
+  type         ReturnType
+  status       ReturnStatus @default(REQUESTED)
+  reason       ReturnReason
+  description  String?      @db.Text
+  refundAmount Int?
+  adminNote    String?      @db.Text
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  order        Order        @relation(fields: [orderId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+  items        ReturnItem[]
+
+  @@index([userId, createdAt])
+  @@index([status])
+}
+
+model ReturnItem {
+  id                String          @id @default(cuid())
+  returnRequestId   String
+  orderItemId       String
+  quantity          Int
+  exchangeVariantId String? // 換貨要換成的 SKU
+  returnRequest     ReturnRequest   @relation(fields: [returnRequestId], references: [id], onDelete: Cascade)
+  orderItem         OrderItem       @relation(fields: [orderItemId], references: [id])
+  exchangeVariant   ProductVariant? @relation("ExchangeVariant", fields: [exchangeVariantId], references: [id])
+
+  @@index([returnRequestId])
+}
+
+// ───────────── 客服知識庫（之後 AI BOT 也會用） ─────────────
+
+model Faq {
+  id        String @id @default(cuid())
+  category  String // 訂單 / 付款 / 運送 / 退換貨 / 會員 / 商品
+  question  String
+  answer    String @db.Text
+  sortOrder Int    @default(0)
+}

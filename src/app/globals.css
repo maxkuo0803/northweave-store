@@ -1,26 +1,49 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* 品牌設計變數：改這裡就能換整站配色 */
+@theme {
+  --color-ink: #1c1b19; /* 主要文字 */
+  --color-muted: #6f6a62; /* 次要文字 */
+  --color-line: #e4ded3; /* 邊框 */
+  --color-paper: #faf8f4; /* 背景 */
+  --color-card: #ffffff;
+  --color-sand: #f1ece3; /* 區塊底色 */
+  --color-brand: #2f4a3a; /* 品牌綠 */
+  --color-brand-dark: #223829;
+  --color-accent: #b5542f; /* 特價、提醒 */
+  --color-ok: #2f7a4f;
+  --color-warn: #b7791f;
+  --color-bad: #b23b3b;
+  --font-sans: var(--font-noto), ui-sans-serif, system-ui, sans-serif;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+
+/* 共用元件樣式（Tailwind v4 用 @utility 定義，才能互相 @apply） */
+@utility btn {
+  @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50;
+}
+@utility btn-primary {
+  @apply btn bg-brand text-white hover:bg-brand-dark;
+}
+@utility btn-outline {
+  @apply btn border border-ink/20 bg-card hover:border-ink;
+}
+@utility btn-danger {
+  @apply btn border border-bad/40 bg-card text-bad hover:bg-bad hover:text-white;
+}
+@utility input {
+  @apply w-full rounded-lg border border-line bg-card px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/15;
+}
+@utility label {
+  @apply mb-1 block text-sm font-medium;
+}
+@utility card {
+  @apply rounded-2xl border border-line bg-card;
+}
+@utility badge {
+  @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
 }
