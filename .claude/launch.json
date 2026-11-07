@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "shop-dev",
+      "runtimeExecutable": "/bin/zsh",
+      "runtimeArgs": ["-c", "export PATH=/Users/max/.local/node/bin:/usr/bin:/bin:/usr/sbin:/sbin; exec npm run dev"],
+      "port": 3000
+    }
+  ]
+}
