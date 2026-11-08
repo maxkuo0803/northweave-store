@@ -1,0 +1,3 @@
+# 不要把本機的金鑰檔上傳到 Vercel
+.env*
+!.env.example
