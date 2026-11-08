@@ -1,12 +1,13 @@
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 import { PrismaClient } from "@/generated/prisma/client";
+import { dbConfig } from "./db-config";
 
 // 開發模式下 Next.js 熱重載會一直重新執行模組，
 // 把 client 存在 globalThis 上，避免每次都開一個新的連線池把 MySQL 連線用光。
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
 function createClient() {
-  const adapter = new PrismaMariaDb(process.env.DATABASE_URL!);
+  const adapter = new PrismaMariaDb(dbConfig());
   return new PrismaClient({ adapter });
 }
 

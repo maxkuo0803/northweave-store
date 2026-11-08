@@ -25,8 +25,9 @@ import type {
   ShippingMethod,
 } from "../src/generated/prisma/enums";
 import { RETURN_WINDOW_DAYS, SHIPPING, garmentImageUrl, shippingFeeFor } from "../src/lib/store-config";
+import { dbConfig } from "../src/lib/db-config";
 
-const prisma = new PrismaClient({ adapter: new PrismaMariaDb(process.env.DATABASE_URL!) });
+const prisma = new PrismaClient({ adapter: new PrismaMariaDb(dbConfig()) });
 faker.seed(20261107);
 
 const DAY = 24 * 60 * 60 * 1000;
