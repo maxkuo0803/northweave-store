@@ -16,7 +16,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
       <div className="mb-6 flex flex-wrap items-center gap-4 border-b border-line pb-4">
         <p className="font-bold">管理後台</p>
         <nav className="flex gap-1 overflow-x-auto text-sm">
-          {LINKS.map((l) => <Link key={l.href} href={l.href} className="shrink-0 rounded-lg px-3 py-1.5 hover:bg-sand">{l.label}</Link>)}
+          {LINKS.map((l) => <Link key={l.href} href={l.href} className="shrink-0 rounded-sm px-3 py-1.5 hover:bg-sand">{l.label}</Link>)}
         </nav>
       </div>
       {children}

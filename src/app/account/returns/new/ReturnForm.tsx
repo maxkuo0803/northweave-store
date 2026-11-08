@@ -19,7 +19,7 @@ export function ReturnForm({ orderNumber, items }: { orderNumber: string; items:
         <h2 className="mb-3 font-bold">1. 選擇類型</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           {([["EXCHANGE", "換貨", "換其他尺寸或顏色，尺寸不合第一次換貨免運"], ["RETURN", "退貨退款", "退回商品並退款到原付款方式"]] as const).map(([v, t, d]) => (
-            <label key={v} className={cn("flex cursor-pointer gap-3 rounded-xl border p-4 text-sm", type === v ? "border-brand bg-brand/5" : "border-line bg-card")}>
+            <label key={v} className={cn("flex cursor-pointer gap-3 rounded-sm border p-4 text-sm", type === v ? "border-brand bg-brand/5" : "border-line bg-card")}>
               <input type="radio" name="type" value={v} checked={type === v} onChange={() => setType(v)} className="mt-1" />
               <span><span className="font-medium">{t}</span><br /><span className="text-muted">{d}</span></span>
             </label>
@@ -33,7 +33,7 @@ export function ReturnForm({ orderNumber, items }: { orderNumber: string; items:
           {items.map((it) => (
             <li key={it.id} className="card flex flex-wrap items-center gap-4 p-4 text-sm">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={it.imageUrl} alt="" className="h-16 w-16 rounded-lg bg-sand" />
+              <img src={it.imageUrl} alt="" className="h-16 w-16 rounded-sm bg-sand" />
               <div className="min-w-40 flex-1">
                 <p className="font-medium">{it.name}</p>
                 <p className="text-muted">{it.variant}・可申請 {it.max} 件</p>
@@ -76,7 +76,7 @@ export function ReturnForm({ orderNumber, items }: { orderNumber: string; items:
         </div>
       </section>
 
-      {state?.error && <p className="rounded-lg bg-bad/10 px-3 py-2 text-sm text-bad">{state.error}</p>}
+      {state?.error && <p className="rounded-sm bg-bad/10 px-3 py-2 text-sm text-bad">{state.error}</p>}
       <button className="btn-primary" disabled={pending}>{pending ? "送出中…" : "送出申請"}</button>
     </form>
   );

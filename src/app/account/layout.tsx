@@ -20,7 +20,7 @@ export default async function AccountLayout({ children }: LayoutProps<"/account"
         <p className="text-lg font-bold">{user.name}</p>
         <nav className="mt-4 flex gap-2 overflow-x-auto text-sm md:flex-col md:gap-1">
           {LINKS.map((l) => (
-            <Link key={l.href} href={l.href} className="shrink-0 rounded-lg px-3 py-2 hover:bg-sand">
+            <Link key={l.href} href={l.href} className="shrink-0 rounded-sm px-3 py-2 hover:bg-sand">
               {l.label}
             </Link>
           ))}

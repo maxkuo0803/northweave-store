@@ -38,10 +38,10 @@ export async function GET(request: Request, ctx: RouteContext<"/api/garment/[typ
   const stroke = isDark(color) ? "#00000055" : "#00000030";
   const detail = isDark(color) ? "#ffffff30" : "#00000022";
 
+  // 透明背景：衣服直接掛在洞洞板或任何底色上；加一點投影讓它像掛著
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240">
-<rect width="240" height="240" fill="#F1ECE3"/>
-<ellipse cx="120" cy="222" rx="74" ry="7" fill="#00000010"/>
-<path d="${path}" fill="#${color}" stroke="${stroke}" stroke-width="2" stroke-linejoin="round" fill-rule="evenodd"/>
+<defs><filter id="s" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="6" stdDeviation="5" flood-color="#000" flood-opacity=".28"/></filter></defs>
+<path d="${path}" fill="#${color}" stroke="${stroke}" stroke-width="2" stroke-linejoin="round" fill-rule="evenodd" filter="url(#s)"/>
 <path d="${path}" fill="none" stroke="${detail}" stroke-width="1.2" stroke-dasharray="3 3" transform="translate(120 120) scale(0.94) translate(-120 -120)"/>
 </svg>`;
 

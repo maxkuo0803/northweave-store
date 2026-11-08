@@ -12,7 +12,7 @@ import type {
 export const STORE = {
   name: "NORTHWEAVE 北織",
   shortName: "北織",
-  tagline: "日常好穿的基本款",
+  tagline: "台灣小量製作的日常衣服",
   serviceEmail: "service@northweave.test",
   servicePhone: "02-2700-0000",
   serviceHours: "週一至週五 10:00–18:00",
@@ -102,5 +102,6 @@ export function formatDate(d: Date | string, withTime = false) {
 }
 
 export function garmentImageUrl(garmentType: string, colorHex: string) {
-  return `/api/garment/${garmentType}?c=${colorHex.replace("#", "")}`;
+  // v=2：改版後的透明背景圖（瀏覽器會長期快取，換版本號才會抓新圖）
+  return `/api/garment/${garmentType}?c=${colorHex.replace("#", "")}&v=2`;
 }

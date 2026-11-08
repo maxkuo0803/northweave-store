@@ -40,7 +40,7 @@ export async function listProducts(f: ProductFilters) {
     // 父分類（例如「男裝」）要包含所有子分類的商品
     where.category = { OR: [{ slug: f.category }, { parent: { slug: f.category } }] };
   }
-  if (f.q) where.OR = [{ name: { contains: f.q } }, { description: { contains: f.q } }];
+  if (f.q) where.OR = [{ name: { contains: f.q } }, { description: { contains: f.q } }, { slug: { startsWith: f.q.trim().toLowerCase() } }];
   if (f.sale) where.salePrice = { not: null };
   if (f.size || f.color) {
     where.variants = { some: { ...(f.size && { size: f.size }), ...(f.color && { color: f.color }), stock: { gt: 0 } } };

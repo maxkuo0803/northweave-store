@@ -41,9 +41,9 @@ export default async function AdminOrders({ searchParams }: PageProps<"/admin/or
         </Form>
       </div>
       <div className="mt-4 flex flex-wrap gap-2 text-sm">
-        <Link href={link({ status: undefined })} className={cn("rounded-full border px-3 py-1", !st ? "border-brand bg-brand text-white" : "border-line bg-card")}>全部</Link>
+        <Link href={link({ status: undefined })} className={cn("rounded-sm border px-3 py-1", !st ? "border-brand bg-brand text-white" : "border-line bg-card")}>全部</Link>
         {(Object.keys(ORDER_STATUS_LABEL) as OrderStatus[]).map((s) => (
-          <Link key={s} href={link({ status: s })} className={cn("rounded-full border px-3 py-1", st === s ? "border-brand bg-brand text-white" : "border-line bg-card")}>{ORDER_STATUS_LABEL[s]}</Link>
+          <Link key={s} href={link({ status: s })} className={cn("rounded-sm border px-3 py-1", st === s ? "border-brand bg-brand text-white" : "border-line bg-card")}>{ORDER_STATUS_LABEL[s]}</Link>
         ))}
       </div>
       <div className="card mt-4 overflow-x-auto">

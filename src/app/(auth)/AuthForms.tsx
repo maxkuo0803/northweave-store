@@ -20,7 +20,7 @@ export function LoginForm({ next }: { next: string }) {
         <label className="label" htmlFor="password">密碼</label>
         <input id="password" name="password" type="password" autoComplete="current-password" required className="input" />
       </div>
-      {state?.error && <p className="rounded-lg bg-bad/10 px-3 py-2 text-sm text-bad">{state.error}</p>}
+      {state?.error && <p className="rounded-sm bg-bad/10 px-3 py-2 text-sm text-bad">{state.error}</p>}
       <button className="btn-primary w-full" disabled={pending}>{pending ? "登入中…" : "登入"}</button>
     </form>
   );
@@ -57,7 +57,7 @@ export function RegisterForm({ next }: { next: string }) {
         <input id="confirm" name="confirm" type="password" autoComplete="new-password" required className="input" />
         <FieldError msg={fe.confirm} />
       </div>
-      {state?.error && <p className="rounded-lg bg-bad/10 px-3 py-2 text-sm text-bad">{state.error}</p>}
+      {state?.error && <p className="rounded-sm bg-bad/10 px-3 py-2 text-sm text-bad">{state.error}</p>}
       <button className="btn-primary w-full" disabled={pending}>{pending ? "建立中…" : "建立帳號"}</button>
     </form>
   );

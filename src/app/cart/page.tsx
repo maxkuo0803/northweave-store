@@ -40,7 +40,7 @@ export default async function CartPage() {
           {lines.map((l) => (
             <li key={l.id} className="flex gap-4 py-4">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={l.imageUrl} alt="" className="h-24 w-24 rounded-xl bg-sand" />
+              <img src={l.imageUrl} alt="" className="h-24 w-24 rounded-sm bg-sand" />
               <div className="flex-1 text-sm">
                 <Link href={`/products/${l.slug}`} className="font-medium hover:text-brand">{l.productName}</Link>
                 <p className="mt-1 text-muted">{l.color} / {l.size}</p>
@@ -74,7 +74,7 @@ export default async function CartPage() {
           {blocked ? (
             <button className="btn-primary w-full" disabled>請先處理庫存不足的商品</button>
           ) : (
-            <Link href="/checkout" className="btn-primary w-full">前往結帳</Link>
+            <Link href="/checkout" className="btn-mark w-full text-base">前往結帳</Link>
           )}
         </aside>
       </div>

@@ -34,7 +34,7 @@ export function CheckoutForm({ lines, subtotal, addresses, user }: { lines: Line
     });
   }
 
-  const radio = (active: boolean) => cn("flex cursor-pointer items-start gap-3 rounded-xl border p-4 text-sm", active ? "border-brand bg-brand/5" : "border-line bg-card");
+  const radio = (active: boolean) => cn("flex cursor-pointer items-start gap-3 rounded-sm border p-4 text-sm", active ? "border-brand bg-brand/5" : "border-line bg-card");
 
   return (
     <form action={action} className="mt-6 grid gap-8 lg:grid-cols-[1fr_340px]">
@@ -97,7 +97,7 @@ export function CheckoutForm({ lines, subtotal, addresses, user }: { lines: Line
               </label>
             ))}
           </div>
-          <p className="mt-3 rounded-lg bg-sand px-4 py-3 text-xs text-muted">
+          <p className="mt-3 rounded-sm bg-sand px-4 py-3 text-xs text-muted">
             {payment === "ATM" ? "下單後會產生虛擬帳號，請於 3 天內轉帳。（模擬，不會真的收款）" :
               payment === "COD" ? "商品送達時付款給物流人員。" :
               "作品集模擬金流：不需輸入卡號，送出後直接視為付款成功。正式上線會導向綠界 / 藍新等金流頁面。"}
@@ -116,7 +116,7 @@ export function CheckoutForm({ lines, subtotal, addresses, user }: { lines: Line
           {lines.map((l) => (
             <li key={l.id} className="flex gap-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={l.imageUrl} alt="" className="h-14 w-14 rounded-lg bg-sand" />
+              <img src={l.imageUrl} alt="" className="h-14 w-14 rounded-sm bg-sand" />
               <div className="flex-1"><p>{l.name}</p><p className="text-muted">{l.variant} × {l.quantity}</p></div>
               <p>{formatPrice(l.lineTotal)}</p>
             </li>
@@ -135,8 +135,8 @@ export function CheckoutForm({ lines, subtotal, addresses, user }: { lines: Line
           <div className="flex justify-between"><span>運費</span><span>{fee === 0 ? "免運" : formatPrice(fee)}</span></div>
           <div className="flex justify-between pt-2 text-base font-bold"><span>總計</span><span>{formatPrice(total)}</span></div>
         </div>
-        {state?.error && <p className="rounded-lg bg-bad/10 px-3 py-2 text-bad">{state.error}</p>}
-        <button className="btn-primary w-full" disabled={pending}>{pending ? "處理中…" : `確認下單 ${formatPrice(total)}`}</button>
+        {state?.error && <p className="rounded-sm bg-bad/10 px-3 py-2 text-bad">{state.error}</p>}
+        <button className="btn-mark w-full text-base" disabled={pending}>{pending ? "處理中…" : `確認下單 ${formatPrice(total)}`}</button>
         <p className="text-xs text-muted">下單即表示同意本站退換貨政策。這是作品集網站，不會真的出貨或收款。</p>
       </aside>
     </form>

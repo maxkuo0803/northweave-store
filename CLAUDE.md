@@ -12,6 +12,9 @@
 - Better Auth（email + 密碼、admin plugin 管角色），Zod 驗證
 - AI：`@anthropic-ai/sdk`，模型由 `CLAUDE_MODEL` 環境變數決定
 
+## 設計
+- 視覺系統是「布市攤位」，規則與色票見 `DESIGN.md`（紅色麥克筆一個畫面只用一次、直角、紙張陰影）
+
 ## 慣例
 - 金額一律 Int（新台幣），在伺服器端計算（`src/lib/pricing.ts`）
 - 商業規則集中在 `src/lib/store-config.ts`（運費、鑑賞期、狀態中文標籤）—— BOT 也要讀這份

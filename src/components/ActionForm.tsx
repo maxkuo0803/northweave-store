@@ -27,8 +27,8 @@ export function ActionForm({
   return (
     <form ref={ref} action={formAction} className={className}>
       {children}
-      {state?.error && <p className="rounded-lg bg-bad/10 px-3 py-2 text-sm text-bad">{state.error}</p>}
-      {state?.ok && <p className="rounded-lg bg-ok/10 px-3 py-2 text-sm text-ok">{state.ok}</p>}
+      {state?.error && <p className="rounded-sm bg-bad/10 px-3 py-2 text-sm text-bad">{state.error}</p>}
+      {state?.ok && <p className="rounded-sm bg-ok/10 px-3 py-2 text-sm text-ok">{state.ok}</p>}
       <button className="btn-primary" disabled={pending}>{pending ? "處理中…" : submitLabel}</button>
     </form>
   );

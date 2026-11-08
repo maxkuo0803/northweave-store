@@ -27,7 +27,7 @@ export default async function OrderDetailPage({ params, searchParams }: PageProp
   return (
     <div className="space-y-6">
       {placed && (
-        <div className="rounded-2xl bg-ok/10 p-5 text-ok">
+        <div className="rounded-sm bg-ok/10 p-5 text-ok">
           <p className="font-bold">訂單已成立，謝謝您的購買！</p>
           <p className="mt-1 text-sm">訂單確認信已寄到 {user.email}（模擬）</p>
         </div>
@@ -64,7 +64,7 @@ export default async function OrderDetailPage({ params, searchParams }: PageProp
               ))}
             </ol>
             {order.trackingNumber && (
-              <p className="mt-4 rounded-lg bg-sand px-4 py-3 text-sm">物流：{order.carrier}　單號：<span className="font-mono">{order.trackingNumber}</span></p>
+              <p className="mt-4 rounded-sm bg-sand px-4 py-3 text-sm">物流：{order.carrier}　單號：<span className="font-mono">{order.trackingNumber}</span></p>
             )}
           </section>
 
@@ -74,7 +74,7 @@ export default async function OrderDetailPage({ params, searchParams }: PageProp
               {order.items.map((it) => (
                 <li key={it.id} className="flex gap-4 py-3 text-sm">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={it.imageUrl} alt="" className="h-16 w-16 rounded-lg bg-sand" />
+                  <img src={it.imageUrl} alt="" className="h-16 w-16 rounded-sm bg-sand" />
                   <div className="flex-1">
                     {it.variant ? <Link href={`/products/${it.variant.product.slug}`} className="font-medium hover:text-brand">{it.productName}</Link> : <p className="font-medium">{it.productName}</p>}
                     <p className="text-muted">{it.color} / {it.size}・{it.sku}</p>

@@ -32,7 +32,7 @@ export default async function OrdersPage() {
               <div className="mt-3 flex items-center gap-2">
                 {o.items.map((it) => (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img key={it.id} src={it.imageUrl} alt={it.productName} className="h-14 w-14 rounded-lg bg-sand" />
+                  <img key={it.id} src={it.imageUrl} alt={it.productName} className="h-14 w-14 rounded-sm bg-sand" />
                 ))}
                 {o._count.items > 3 && <span className="text-sm text-muted">+{o._count.items - 3}</span>}
                 <span className="ml-2 text-sm text-muted">{o.items[0]?.productName}{o._count.items > 1 && ` 等 ${o._count.items} 件商品`}</span>

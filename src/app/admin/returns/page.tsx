@@ -21,9 +21,9 @@ export default async function AdminReturns({ searchParams }: PageProps<"/admin/r
     <div>
       <h1 className="text-xl font-bold">退換貨管理</h1>
       <div className="mt-4 flex flex-wrap gap-2 text-sm">
-        <Link href="/admin/returns" className={cn("rounded-full border px-3 py-1", !st ? "border-brand bg-brand text-white" : "border-line bg-card")}>全部</Link>
+        <Link href="/admin/returns" className={cn("rounded-sm border px-3 py-1", !st ? "border-brand bg-brand text-white" : "border-line bg-card")}>全部</Link>
         {(Object.keys(RETURN_STATUS_LABEL) as ReturnStatus[]).map((s) => (
-          <Link key={s} href={`/admin/returns?status=${s}`} className={cn("rounded-full border px-3 py-1", st === s ? "border-brand bg-brand text-white" : "border-line bg-card")}>{RETURN_STATUS_LABEL[s]}</Link>
+          <Link key={s} href={`/admin/returns?status=${s}`} className={cn("rounded-sm border px-3 py-1", st === s ? "border-brand bg-brand text-white" : "border-line bg-card")}>{RETURN_STATUS_LABEL[s]}</Link>
         ))}
       </div>
       <div className="card mt-4 overflow-x-auto">
