@@ -79,7 +79,7 @@ export default async function AdminOrderDetail({ params }: PageProps<"/admin/ord
             <p className="text-muted">{SHIPPING_METHOD_LABEL[order.shippingMethod]}：{order.shippingAddress}</p>
             <p className="text-muted">付款：{PAYMENT_METHOD_LABEL[order.paymentMethod]}・{PAYMENT_STATUS_LABEL[order.paymentStatus]}</p>
             {order.trackingNumber && <p className="text-muted">物流單號：{order.carrier} {order.trackingNumber}</p>}
-            {order.note && <p className="rounded bg-warn/10 p-2">顧客備註：{order.note}</p>}
+            {order.note && <p className="rounded-sm bg-warn/10 p-2">顧客備註：{order.note}</p>}
           </div>
           <div className="card space-y-3 p-5">
             <h2 className="font-bold">處理訂單</h2>

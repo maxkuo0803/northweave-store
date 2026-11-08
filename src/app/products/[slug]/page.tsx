@@ -40,7 +40,7 @@ export default async function ProductPage({ params }: PageProps<"/products/[slug
     <div>
       <section className="pegboard pt-8 pb-16">
         <div className="mx-auto max-w-6xl px-4">
-          <nav aria-label="麵包屑" className="mb-8 inline-flex flex-wrap gap-1 rounded-sm bg-card/90 px-3 py-1.5 text-sm shadow-sm">
+          <nav aria-label="麵包屑" className="mb-8 inline-flex flex-wrap gap-1 rounded-full bg-card/90 px-4 py-1.5 text-sm shadow-sm">
             <Link href="/products" className="hover:underline">全部商品</Link>
             {product.category.parent && <>/<Link href={`/products?category=${product.category.parent.slug}`} className="hover:underline">{product.category.parent.name}</Link></>}
             /<Link href={`/products?category=${product.category.slug}`} className="font-bold hover:underline">{product.category.name}</Link>

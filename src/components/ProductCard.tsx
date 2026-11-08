@@ -38,7 +38,7 @@ export function ProductCard({ product, index = 0 }: { product: ProductCardData; 
       <div className="-mt-[22%] flex justify-center">
         <div
           style={{ "--tilt": `${tilt}deg` } as React.CSSProperties}
-          className={cn("swing-tag swing-on-hover w-[78%] max-w-52 px-3 pt-5 pb-3", soldOut ? "rounded-sm bg-[#b9bdbf] text-ink shadow-md" : "kraft-tag")}
+          className={cn("swing-tag swing-on-hover w-[78%] max-w-52 px-3 pt-5 pb-3", soldOut ? "rounded-2xl bg-[#b9bdbf] text-ink shadow-md" : "kraft-tag")}
         >
           {/* 木衣夾 */}
           <span aria-hidden className="absolute -top-3 left-1/2 h-7 w-4 -translate-x-1/2 rounded-[2px] bg-[#d9b989] shadow-[inset_0_0_0_1.5px_#9c7a4c,0_2px_3px_rgb(0_0_0/.3)]" />

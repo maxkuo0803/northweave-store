@@ -45,7 +45,7 @@ export async function Header() {
               name="q"
               placeholder="搜尋商品或編號 NW001"
               aria-label="搜尋商品"
-              className="w-full rounded-sm border-0 bg-white/95 px-3 py-1.5 text-sm text-ink outline-none placeholder:text-muted focus:bg-white focus:ring-2 focus:ring-neon"
+              className="w-full rounded-full border-0 bg-white/95 px-4 py-1.5 text-sm text-ink outline-none placeholder:text-muted focus:bg-white focus:ring-2 focus:ring-neon"
             />
           </Form>
           <div className="ml-auto flex items-center gap-4 text-sm font-bold lg:ml-0">
