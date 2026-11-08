@@ -55,8 +55,19 @@ npm run db:seed              # 產生假資料
 | 角色 | Email | 密碼 |
 |---|---|---|
 | 會員（有各種狀態的訂單） | demo@northweave.test | Demo1234! |
-| 管理員 | admin@northweave.test | Admin1234! |
-| 其他 45 位假會員 | 見 Prisma Studio | Password123! |
+| 店員（可進後台處理訂單、退換貨，不能改商品） | staff@northweave.test | Staff1234! |
+| 管理員（可改商品） | admin@northweave.test | 本機 `Admin1234!`；正式站用環境變數 `ADMIN_PASSWORD`，不公開 |
+| 其他 45 位假會員 | 見 Prisma Studio | 每次 seed 隨機產生，無法登入 |
+
+公開的展示帳號（demo、staff）不能改密碼和個人資料，避免被其他人鎖住。
+
+### 資安措施
+
+- 每個後台頁面和 Server Action 都各自檢查權限（不只靠 layout）
+- 所有查詢都帶 `userId`，不能改網址看別人的訂單
+- 登入、註冊、改密碼、下單都有限流（存在資料庫，多台機器共用）
+- Content-Security-Policy（nonce）、HSTS、X-Frame-Options 等安全標頭
+- 密碼用 Better Auth 雜湊；金鑰只放在環境變數，不進 Git
 
 可用優惠碼：`WELCOME100`、`AUTUMN15`、`FREESHIP`（`SUMMER20` 已過期，用來測試錯誤訊息）
 

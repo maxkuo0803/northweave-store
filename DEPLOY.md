@@ -35,14 +35,15 @@ GitHub（放程式碼）──自動部署──▶ Vercel（跑網站）──�
 
 ## 第 2 步：在雲端資料庫建立資料表與假資料
 
-在自己電腦的專案資料夾執行（把網址換成你的）：
+在自己電腦的專案資料夾執行：
 
 ```bash
-export DATABASE_URL="mysql://...?sslaccept=strict"
-npm run db:deploy   # 依照 prisma/migrations 建立資料表
-npm run db:seed     # 放入假商品、會員、訂單
-unset DATABASE_URL  # 用完清掉，避免接下來不小心改到雲端資料庫
+npm run db:cloud-setup
 ```
+
+腳本會請你到 TiDB 按「複製密碼」，測試連線後把連線字串存到 `.env.production.local`（不進版控），再建立資料表、放入假資料。
+
+正式站的管理員密碼：在 `.env.production.local` 加一行 `ADMIN_PASSWORD="一組隨機密碼"` 再跑一次，seed 就會用它（不公開；公開的是 staff 展示帳號）。
 
 > `db:deploy` 和本機用的 `db:migrate` 不同：deploy 只「套用」已經寫好的 migration，不會產生新的，正式環境都用這個。
 

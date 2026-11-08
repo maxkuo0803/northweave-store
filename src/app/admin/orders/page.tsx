@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Form from "next/form";
 import { prisma } from "@/lib/prisma";
+import { requireStaff } from "@/lib/session";
 import type { Prisma } from "@/generated/prisma/client";
 import type { OrderStatus } from "@/generated/prisma/enums";
 import { OrderStatusBadge } from "@/components/StatusBadge";
@@ -11,6 +12,7 @@ import { cn } from "@/lib/utils";
 export const metadata: Metadata = { title: "訂單管理" };
 
 export default async function AdminOrders({ searchParams }: PageProps<"/admin/orders">) {
+  await requireStaff(); // 每一頁都要自己檢查權限：layout 在換頁時不一定會重跑
   const { status, q, page } = await searchParams;
   const st = typeof status === "string" && status in ORDER_STATUS_LABEL ? (status as OrderStatus) : undefined;
   const query = typeof q === "string" ? q.trim() : "";

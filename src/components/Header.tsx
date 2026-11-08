@@ -51,7 +51,7 @@ export async function Header() {
           <div className="ml-auto flex items-center gap-4 text-sm font-bold lg:ml-0">
             {session ? (
               <>
-                {session.user.role === "admin" && (
+                {(session.user.role === "admin" || session.user.role === "staff") && (
                   <Link href="/admin" className="hidden rounded-sm bg-ink px-2 py-1 text-xs sm:inline">
                     後台
                   </Link>

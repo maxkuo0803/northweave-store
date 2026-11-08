@@ -105,3 +105,7 @@ export function garmentImageUrl(garmentType: string, colorHex: string) {
   // v=2：改版後的透明背景圖（瀏覽器會長期快取，換版本號才會抓新圖）
   return `/api/garment/${garmentType}?c=${colorHex.replace("#", "")}&v=2`;
 }
+
+// 公開在 README 的展示帳號：大家共用，所以不能改密碼 / 個人資料，避免被人鎖住或亂改
+export const DEMO_EMAILS = ["demo@northweave.test", "staff@northweave.test"];
+export const isDemoEmail = (email?: string | null) => !!email && DEMO_EMAILS.includes(email.toLowerCase());

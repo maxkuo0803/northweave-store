@@ -90,6 +90,17 @@ model Verification {
   @@map("verification")
 }
 
+// 限流紀錄（Better Auth 的 HTTP API 和我們的 Server Action 共用）
+// lastRequest 是毫秒時間戳，用 BigInt 存
+model RateLimit {
+  id          String @id
+  key         String @unique
+  count       Int
+  lastRequest BigInt
+
+  @@map("rateLimit")
+}
+
 model Address {
   id            String  @id @default(cuid())
   userId        String

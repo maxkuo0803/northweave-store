@@ -3,10 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin } from "@/lib/session";
+import { requireStaff } from "@/lib/session";
 import type { OrderStatus } from "@/generated/prisma/enums";
 
-// 後台每個 action 都要先檢查是不是管理員 —— 不能只靠「頁面上看不到按鈕」來保護
+// 後台每個 action 都要先檢查權限 —— 不能只靠「頁面上看不到按鈕」來保護
+// 訂單 / 退換貨：admin 或 staff 都可以；修改商品：只有 admin
+
+// 備註欄位：去空白、限制長度
+const note = (v: FormDataEntryValue | null) => String(v ?? "").trim().slice(0, 200) || null;
 
 const NEXT_STATUS: Partial<Record<OrderStatus, OrderStatus>> = {
   PAID: "PROCESSING",
@@ -16,14 +20,14 @@ const NEXT_STATUS: Partial<Record<OrderStatus, OrderStatus>> = {
 };
 
 export async function advanceOrderAction(formData: FormData) {
-  await requireAdmin();
+  await requireStaff();
   const id = String(formData.get("id"));
   const order = await prisma.order.findUniqueOrThrow({ where: { id } });
   const next = NEXT_STATUS[order.status];
   if (!next) return;
   const now = new Date();
-  const note = String(formData.get("note") ?? "").trim() || null;
-  const tracking = String(formData.get("trackingNumber") ?? "").trim();
+  const noteText = note(formData.get("note"));
+  const tracking = String(formData.get("trackingNumber") ?? "").trim().slice(0, 40);
   if (next === "SHIPPED" && !tracking) return;
 
   await prisma.order.update({
@@ -35,7 +39,7 @@ export async function advanceOrderAction(formData: FormData) {
       history: {
         create: {
           status: next,
-          note: note ?? (next === "SHIPPED" ? `已交由${order.carrier ?? "物流"}配送` : next === "DELIVERED" && order.paymentMethod === "COD" ? "商品已送達，貨到付款已收款" : next === "COMPLETED" ? "鑑賞期結束，訂單完成" : null),
+          note: noteText ?? (next === "SHIPPED" ? `已交由${order.carrier ?? "物流"}配送` : next === "DELIVERED" && order.paymentMethod === "COD" ? "商品已送達，貨到付款已收款" : next === "COMPLETED" ? "鑑賞期結束，訂單完成" : null),
         },
       },
     },
@@ -44,9 +48,9 @@ export async function advanceOrderAction(formData: FormData) {
 }
 
 export async function adminCancelOrderAction(formData: FormData) {
-  await requireAdmin();
+  await requireStaff();
   const id = String(formData.get("id"));
-  const note = String(formData.get("note") ?? "").trim() || "店家取消訂單";
+  const cancelNote = note(formData.get("note")) ?? "店家取消訂單";
   const order = await prisma.order.findUniqueOrThrow({ where: { id }, include: { items: true } });
   if (!["PENDING_PAYMENT", "PAID", "PROCESSING"].includes(order.status)) return;
   await prisma.$transaction(async (tx) => {
@@ -59,7 +63,7 @@ export async function adminCancelOrderAction(formData: FormData) {
         status: "CANCELLED",
         cancelledAt: new Date(),
         paymentStatus: order.paymentStatus === "PAID" ? "REFUNDED" : order.paymentStatus,
-        history: { create: { status: "CANCELLED", note } },
+        history: { create: { status: "CANCELLED", note: cancelNote } },
       },
     });
   });
@@ -69,10 +73,10 @@ export async function adminCancelOrderAction(formData: FormData) {
 // ───────────── 退換貨 ─────────────
 
 export async function reviewReturnAction(formData: FormData) {
-  await requireAdmin();
+  await requireStaff();
   const id = String(formData.get("id"));
   const decision = formData.get("decision");
-  const adminNote = String(formData.get("adminNote") ?? "").trim() || null;
+  const adminNote = note(formData.get("adminNote"));
   if (decision === "approve") {
     await prisma.returnRequest.updateMany({ where: { id, status: "REQUESTED" }, data: { status: "APPROVED", adminNote } });
   } else if (decision === "reject") {
@@ -82,7 +86,7 @@ export async function reviewReturnAction(formData: FormData) {
 }
 
 export async function receiveReturnAction(formData: FormData) {
-  await requireAdmin();
+  await requireStaff();
   const id = String(formData.get("id"));
   const r = await prisma.returnRequest.findUniqueOrThrow({ where: { id }, include: { items: { include: { orderItem: true } } } });
   if (r.status !== "APPROVED") return;
@@ -97,7 +101,7 @@ export async function receiveReturnAction(formData: FormData) {
 }
 
 export async function completeReturnAction(formData: FormData) {
-  await requireAdmin();
+  await requireStaff();
   const id = String(formData.get("id"));
   const r = await prisma.returnRequest.findUniqueOrThrow({ where: { id }, include: { order: true, items: { include: { orderItem: true } } } });
   if (r.status !== "RECEIVED") return;
@@ -127,15 +131,17 @@ export async function completeReturnAction(formData: FormData) {
 
 const productSchema = z.object({
   id: z.string(),
-  name: z.string().trim().min(1),
-  price: z.coerce.number().int().min(1),
+  name: z.string().trim().min(1).max(60),
+  price: z.coerce.number().int().min(1).max(1_000_000),
   salePrice: z.union([z.literal(""), z.coerce.number().int().min(1)]),
   status: z.enum(["ACTIVE", "DRAFT", "ARCHIVED"]),
-  description: z.string().trim().min(1),
+  description: z.string().trim().min(1).max(2000),
 });
 
 export async function updateProductAction(_: unknown, formData: FormData) {
-  await requireAdmin();
+  const user = await requireStaff();
+  // 商品內容會出現在公開的前台，展示用的 staff 帳號不能改
+  if (user.role !== "admin") return { error: "展示用的店員帳號只能查看商品，不能修改（避免前台被亂改）" };
   const parsed = productSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: "欄位格式錯誤：" + parsed.error.issues[0].path.join(".") };
   const { id, salePrice, ...rest } = parsed.data;
@@ -145,7 +151,7 @@ export async function updateProductAction(_: unknown, formData: FormData) {
   // 庫存欄位：stock_<variantId>
   const updates = [...formData.entries()].filter(([k]) => k.startsWith("stock_"));
   await prisma.$transaction(
-    updates.map(([k, v]) => prisma.productVariant.update({ where: { id: k.slice(6), productId: id }, data: { stock: Math.max(0, Number(v) || 0) } })),
+    updates.map(([k, v]) => prisma.productVariant.update({ where: { id: k.slice(6), productId: id }, data: { stock: Math.min(99_999, Math.max(0, Math.floor(Number(v)) || 0)) } })),
   );
   revalidatePath("/", "layout");
   return { ok: "已儲存" };

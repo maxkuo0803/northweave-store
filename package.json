@@ -14,7 +14,8 @@
     "db:reset": "prisma migrate reset --force",
     "db:studio": "prisma studio",
     "postinstall": "prisma generate",
-    "db:deploy": "prisma migrate deploy"
+    "db:deploy": "prisma migrate deploy",
+    "db:cloud-setup": "zsh scripts/setup-cloud-db.sh"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.6.0",

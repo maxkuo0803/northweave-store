@@ -2,11 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Form from "next/form";
 import { prisma } from "@/lib/prisma";
+import { requireStaff } from "@/lib/session";
 import { formatDate, formatPrice } from "@/lib/store-config";
 
 export const metadata: Metadata = { title: "會員管理" };
 
 export default async function AdminCustomers({ searchParams }: PageProps<"/admin/customers">) {
+  await requireStaff(); // 每一頁都要自己檢查權限：layout 在換頁時不一定會重跑
   const { q } = await searchParams;
   const query = typeof q === "string" ? q.trim() : "";
   const users = await prisma.user.findMany({
@@ -42,7 +44,7 @@ export default async function AdminCustomers({ searchParams }: PageProps<"/admin
                 <td>{u._count.orders}</td>
                 <td>{formatPrice(spentMap.get(u.id) ?? 0)}</td>
                 <td>{u._count.returnRequests}</td>
-                <td>{u.role === "admin" ? <span className="badge bg-ink text-white">管理員</span> : "會員"}</td>
+                <td>{u.role === "admin" ? <span className="badge bg-ink text-white">管理員</span> : u.role === "staff" ? <span className="badge">展示店員</span> : "會員"}</td>
               </tr>
             ))}
           </tbody>

@@ -29,9 +29,10 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
           <p className="mt-3 font-bold">會員</p>
           <p>demo@northweave.test</p>
           <p className="font-marker">Demo1234!</p>
-          <p className="mt-3 font-bold">管理員（可進後台）</p>
-          <p>admin@northweave.test</p>
-          <p className="font-marker">Admin1234!</p>
+          <p className="mt-3 font-bold">店員（可進後台處理訂單）</p>
+          <p>staff@northweave.test</p>
+          <p className="font-marker">Staff1234!</p>
+          <p className="mt-3 text-xs">試用帳號大家共用，不能改密碼。想試完整會員功能可以自己註冊。</p>
         </div>
       </div>
     </div>

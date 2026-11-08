@@ -4,14 +4,16 @@
  * 用固定亂數種子，每次產生的資料都一樣，方便 demo 與測試。
  *
  * Demo 帳號（測試用）：
- *   一般會員  demo@northweave.test   / Demo1234!
- *   管理員    admin@northweave.test  / Admin1234!
- *   其他假會員的密碼都是 Password123!
+ *   一般會員（公開）  demo@northweave.test   / Demo1234!
+ *   展示店員（公開）  staff@northweave.test  / Staff1234!   可進後台處理訂單、退換貨，不能改商品
+ *   管理員（不公開）  admin@northweave.test  / 環境變數 ADMIN_PASSWORD（沒設定時本機用 Admin1234!）
+ *   其他假會員：每次 seed 都是隨機密碼，沒有人能登入
  */
 import { config } from "dotenv";
 config({ path: ".env.local" });
 
 import { fakerZH_TW as faker } from "@faker-js/faker";
+import { randomBytes } from "node:crypto";
 import { hashPassword } from "better-auth/crypto";
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 import { PrismaClient } from "../src/generated/prisma/client";
@@ -218,6 +220,7 @@ async function main() {
   await prisma.session.deleteMany();
   await prisma.account.deleteMany();
   await prisma.verification.deleteMany();
+  await prisma.rateLimit.deleteMany();
   await prisma.user.deleteMany();
 
   // 分類
@@ -294,7 +297,10 @@ async function main() {
 
   // 會員
   console.log("建立會員（密碼雜湊需要一點時間）…");
-  const defaultHash = await hashPassword("Password123!");
+  // 其他假會員用隨機密碼：網站公開後，不能讓人用「大家都一樣的密碼」登入別人的帳號
+  const defaultHash = await hashPassword(randomBytes(24).toString("base64url"));
+  const adminPassword = process.env.ADMIN_PASSWORD || "Admin1234!";
+  if (!process.env.ADMIN_PASSWORD) console.log("（沒有設定 ADMIN_PASSWORD，管理員密碼使用本機預設值 Admin1234!）");
   async function createUser(opts: { name: string; email: string; password?: string; role?: string; createdAt: Date; phone: string }) {
     const id = faker.string.alphanumeric(24);
     const hash = opts.password ? await hashPassword(opts.password) : defaultHash;
@@ -313,7 +319,8 @@ async function main() {
     return id;
   }
 
-  await createUser({ name: "北織管理員", email: "admin@northweave.test", password: "Admin1234!", role: "admin", createdAt: daysAgo(400), phone: "0900000001" });
+  await createUser({ name: "北織管理員", email: "admin@northweave.test", password: adminPassword, role: "admin", createdAt: daysAgo(400), phone: "0900000001" });
+  await createUser({ name: "展示店員", email: "staff@northweave.test", password: "Staff1234!", role: "staff", createdAt: daysAgo(300), phone: "0900000002" });
   const demoId = await createUser({ name: "王小明", email: "demo@northweave.test", password: "Demo1234!", createdAt: daysAgo(200), phone: "0912345678" });
 
   const customerIds: string[] = [demoId];

@@ -69,6 +69,7 @@ export async function createReturnAction(_: ReturnFormState, formData: FormData)
   const items: { orderItemId: string; quantity: number; exchangeVariantId: string | null }[] = [];
   for (const it of order.items) {
     const qty = Number(formData.get(`qty_${it.id}`) ?? 0);
+    if (!Number.isInteger(qty)) return { error: "數量格式錯誤" };
     if (!qty) continue;
     if (qty < 0 || qty > remaining[it.id]) return { error: `${it.productName} 最多可申請 ${remaining[it.id]} 件` };
     let exchangeVariantId: string | null = null;

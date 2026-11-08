@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { requireStaff } from "@/lib/session";
 import { OrderStatusBadge, ReturnStatusBadge } from "@/components/StatusBadge";
 import {
   ORDER_STATUS_LABEL, PAYMENT_METHOD_LABEL, PAYMENT_STATUS_LABEL, RETURN_TYPE_LABEL, SHIPPING_METHOD_LABEL, formatDate, formatPrice,
@@ -13,6 +14,7 @@ export const metadata: Metadata = { title: "訂單詳情" };
 const NEXT_LABEL: Record<string, string> = { PAID: "開始備貨", PROCESSING: "出貨", SHIPPED: "標記為已送達", DELIVERED: "標記為已完成" };
 
 export default async function AdminOrderDetail({ params }: PageProps<"/admin/orders/[orderNumber]">) {
+  await requireStaff(); // 每一頁都要自己檢查權限：layout 在換頁時不一定會重跑
   const { orderNumber } = await params;
   const order = await prisma.order.findUnique({
     where: { orderNumber },

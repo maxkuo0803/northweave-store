@@ -16,9 +16,22 @@ export async function requireUser(returnTo = "/account") {
   return session.user;
 }
 
-export async function requireAdmin() {
+// 後台角色：
+// - admin：真正的管理員，什麼都能做（密碼只有站長知道，不公開）
+// - staff：公開給面試官試用的「展示店員」，可以處理訂單和退換貨，但不能改商品內容
+const STAFF_ROLES = ["admin", "staff"];
+
+// 進後台、處理訂單 / 退換貨：admin 或 staff
+export async function requireStaff() {
   const session = await getSession();
   if (!session) redirect("/login?next=/admin");
-  if (session.user.role !== "admin") redirect("/");
+  if (!STAFF_ROLES.includes(session.user.role ?? "")) redirect("/");
   return session.user;
+}
+
+// 只有真正的管理員能做的事（例如修改商品）
+export async function requireAdmin() {
+  const user = await requireStaff();
+  if (user.role !== "admin") redirect("/admin");
+  return user;
 }

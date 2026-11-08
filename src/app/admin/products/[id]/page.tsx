@@ -2,11 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { requireStaff } from "@/lib/session";
 import { ProductEditor } from "./ProductEditor";
 
 export const metadata: Metadata = { title: "編輯商品" };
 
 export default async function AdminProductEdit({ params }: PageProps<"/admin/products/[id]">) {
+  await requireStaff(); // 每一頁都要自己檢查權限：layout 在換頁時不一定會重跑
   const { id } = await params;
   const product = await prisma.product.findUnique({ where: { id }, include: { variants: { orderBy: { sku: "asc" } }, images: { take: 1 } } });
   if (!product) notFound();

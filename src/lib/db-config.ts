@@ -17,6 +17,9 @@ export function dbConfig(url = process.env.DATABASE_URL) {
     database: u.pathname.replace(/^\//, ""),
     // 雲端部署（Vercel）每個函式都會開連線，數量要小，免費方案的資料庫才撐得住
     connectionLimit: Number(process.env.DB_POOL_SIZE ?? 5),
+    // 預設只等 1 秒；跨國加密連線（台灣→東京）握手比較慢，給 10 秒
+    connectTimeout: 10_000,
+    acquireTimeout: 20_000,
     ...(ssl && { ssl: { rejectUnauthorized: true } }),
   };
 }

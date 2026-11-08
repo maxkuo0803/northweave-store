@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Form from "next/form";
 import { prisma } from "@/lib/prisma";
+import { requireStaff } from "@/lib/session";
 import { formatPrice } from "@/lib/store-config";
 
 export const metadata: Metadata = { title: "商品管理" };
@@ -9,6 +10,7 @@ export const metadata: Metadata = { title: "商品管理" };
 const STATUS_LABEL = { ACTIVE: "上架中", DRAFT: "草稿", ARCHIVED: "已下架" } as const;
 
 export default async function AdminProducts({ searchParams }: PageProps<"/admin/products">) {
+  await requireStaff(); // 每一頁都要自己檢查權限：layout 在換頁時不一定會重跑
   const { q } = await searchParams;
   const query = typeof q === "string" ? q.trim() : "";
   const products = await prisma.product.findMany({

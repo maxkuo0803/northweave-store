@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { getCart, quote, validateCoupon } from "@/lib/pricing";
 import { SHIPPING } from "@/lib/store-config";
+import { TOO_MANY, rateLimit } from "@/lib/rate-limit";
 import type { OrderStatus } from "@/generated/prisma/enums";
 
 export async function checkCouponAction(code: string, subtotal: number) {
@@ -21,18 +22,18 @@ const schema = z.object({
   shippingMethod: z.enum(["HOME", "CVS"]),
   paymentMethod: z.enum(["CREDIT_CARD", "LINE_PAY", "ATM", "COD"]),
   addressId: z.string().optional(),
-  cvsStore: z.string().optional(),
-  couponCode: z.string().optional(),
+  cvsStore: z.string().max(40).optional(),
+  couponCode: z.string().max(40).optional(),
   note: z.string().max(200).optional(),
 });
 
 const newAddressSchema = z.object({
-  new_recipientName: z.string().trim().min(1, "請輸入收件人"),
+  new_recipientName: z.string().trim().min(1, "請輸入收件人").max(40),
   new_phone: z.string().trim().regex(/^09\d{8}$/, "手機號碼格式為 09 開頭共 10 碼"),
   new_zipCode: z.string().trim().regex(/^\d{3,6}$/, "請輸入郵遞區號"),
-  new_city: z.string().min(1, "請選擇縣市"),
-  new_district: z.string().trim().min(1, "請輸入鄉鎮市區"),
-  new_line: z.string().trim().min(3, "請輸入詳細地址"),
+  new_city: z.string().min(1, "請選擇縣市").max(10),
+  new_district: z.string().trim().min(1, "請輸入鄉鎮市區").max(20),
+  new_line: z.string().trim().min(3, "請輸入詳細地址").max(120),
 });
 
 function newOrderNumber() {
@@ -47,12 +48,14 @@ export async function placeOrderAction(_: CheckoutState, formData: FormData): Pr
   const parsed = schema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: "結帳資料不完整" };
   const f = parsed.data;
+  // 防止洗訂單（會把展示商品的庫存扣光）：每個帳號 1 小時最多 10 筆
+  if (!(await rateLimit(`order:${user.id}`, 10, 3600))) return { error: TOO_MANY };
 
   // 收件資訊
   let recipient: { name: string; phone: string; address: string };
   if (f.shippingMethod === "CVS") {
     if (!f.cvsStore) return { error: "請選擇取貨門市" };
-    recipient = { name: String(formData.get("cvsName") ?? user.name), phone: String(formData.get("cvsPhone") ?? ""), address: `7-ELEVEN ${f.cvsStore}` };
+    recipient = { name: String(formData.get("cvsName") ?? user.name).trim().slice(0, 40), phone: String(formData.get("cvsPhone") ?? ""), address: `7-ELEVEN ${f.cvsStore}` };
     if (!/^09\d{8}$/.test(recipient.phone)) return { error: "請輸入取件人手機（09 開頭共 10 碼）" };
   } else if (f.addressId && f.addressId !== "new") {
     const a = await prisma.address.findFirst({ where: { id: f.addressId, userId: user.id } });
@@ -63,7 +66,7 @@ export async function placeOrderAction(_: CheckoutState, formData: FormData): Pr
     if (!na.success) return { error: na.error.issues[0].message };
     const a = na.data;
     recipient = { name: a.new_recipientName, phone: a.new_phone, address: `${a.new_zipCode} ${a.new_city}${a.new_district}${a.new_line}` };
-    if (formData.get("saveAddress") === "on") {
+    if (formData.get("saveAddress") === "on" && (await prisma.address.count({ where: { userId: user.id } })) < 10) {
       const isFirst = (await prisma.address.count({ where: { userId: user.id } })) === 0;
       await prisma.address.create({ data: { userId: user.id, recipientName: a.new_recipientName, phone: a.new_phone, zipCode: a.new_zipCode, city: a.new_city, district: a.new_district, line: a.new_line, isDefault: isFirst } });
     }

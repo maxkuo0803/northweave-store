@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { requireStaff } from "@/lib/session";
 import type { ReturnStatus } from "@/generated/prisma/enums";
 import { ReturnStatusBadge } from "@/components/StatusBadge";
 import { RETURN_REASON_LABEL, RETURN_STATUS_LABEL, RETURN_TYPE_LABEL, formatDate } from "@/lib/store-config";
@@ -9,6 +10,7 @@ import { cn } from "@/lib/utils";
 export const metadata: Metadata = { title: "退換貨管理" };
 
 export default async function AdminReturns({ searchParams }: PageProps<"/admin/returns">) {
+  await requireStaff(); // 每一頁都要自己檢查權限：layout 在換頁時不一定會重跑
   const { status } = await searchParams;
   const st = typeof status === "string" && status in RETURN_STATUS_LABEL ? (status as ReturnStatus) : undefined;
   const returns = await prisma.returnRequest.findMany({

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { requireStaff } from "@/lib/session";
 import { ReturnStatusBadge } from "@/components/StatusBadge";
 import { RETURN_REASON_LABEL, RETURN_TYPE_LABEL, formatDate, formatPrice } from "@/lib/store-config";
 import { completeReturnAction, receiveReturnAction, reviewReturnAction } from "../../actions";
@@ -9,6 +10,7 @@ import { completeReturnAction, receiveReturnAction, reviewReturnAction } from ".
 export const metadata: Metadata = { title: "退換貨詳情" };
 
 export default async function AdminReturnDetail({ params }: PageProps<"/admin/returns/[rmaNumber]">) {
+  await requireStaff(); // 每一頁都要自己檢查權限：layout 在換頁時不一定會重跑
   const { rmaNumber } = await params;
   const r = await prisma.returnRequest.findUnique({
     where: { rmaNumber },

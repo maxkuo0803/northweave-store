@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireAdmin } from "@/lib/session";
+import { requireStaff } from "@/lib/session";
 
 const LINKS = [
   { href: "/admin", label: "總覽" },
@@ -10,7 +10,7 @@ const LINKS = [
 ];
 
 export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
-  await requireAdmin();
+  await requireStaff();
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
       <div className="mb-6 flex flex-wrap items-center gap-4 border-b border-line pb-4">

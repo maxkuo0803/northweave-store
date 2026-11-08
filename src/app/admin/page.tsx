@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { requireStaff } from "@/lib/session";
 import { OrderStatusBadge } from "@/components/StatusBadge";
 import { ORDER_STATUS_LABEL, formatDate, formatPrice } from "@/lib/store-config";
 import type { OrderStatus } from "@/generated/prisma/enums";
@@ -12,6 +13,7 @@ function daysAgo(n: number) {
 }
 
 export default async function AdminHome() {
+  await requireStaff(); // 每一頁都要自己檢查權限：layout 在換頁時不一定會重跑
   const since = daysAgo(30);
   const [revenue, byStatus, pendingReturns, lowStock, recent, newUsers] = await Promise.all([
     prisma.order.aggregate({ where: { placedAt: { gte: since }, status: { not: "CANCELLED" } }, _sum: { total: true }, _count: true }),
