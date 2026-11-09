@@ -539,3 +539,23 @@ model BrowseEvent {
   @@index([userId, createdAt])
   @@index([productId])
 }
+
+// AI 客服的知識庫（RAG）：每一筆是一段可以被搜尋的知識（一件商品、一則 FAQ、一段指南…）
+// embedding 是這段文字的「語意向量」（一串數字），意思相近的文字向量也相近，用來做語意搜尋。
+// 資料量小（幾百筆以內），向量直接存 JSON，用程式算相似度，不用另外架向量資料庫。
+model KnowledgeChunk {
+  id             String   @id @default(cuid())
+  sourceType     String // PRODUCT / FAQ / POLICY / GUIDE / PROMO
+  sourceId       String // 來源的 ID（商品 id、FAQ id、指南代號#段落）
+  title          String
+  content        String   @db.Text
+  url            String? // 給顧客的連結（商品頁、FAQ 頁）
+  meta           Json? // 額外資訊（例如優惠碼的到期日），搜尋時用來過濾
+  contentHash    String // 內容沒變就不用重新算向量（省錢）
+  embedding      Json? // number[]；沒有 Voyage 金鑰時是 null，只用關鍵字搜尋
+  embeddingModel String?
+  updatedAt      DateTime @updatedAt
+  createdAt      DateTime @default(now())
+
+  @@unique([sourceType, sourceId])
+}

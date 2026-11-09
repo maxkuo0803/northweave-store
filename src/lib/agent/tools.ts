@@ -7,6 +7,8 @@ import { getOrderForUser, returnDeadline, returnEligibility, returnableQuantitie
 import { createReturn } from "@/lib/returns";
 import { recommendFor } from "@/lib/recommend";
 import { sizeChartFor } from "@/lib/size-chart";
+import { searchKnowledge } from "@/lib/knowledge/search";
+import { SOURCE_LABEL } from "@/lib/knowledge/sources";
 import {
   ORDER_STATUS_LABEL, PAYMENT_METHOD_LABEL, RETURN_REASON_LABEL, RETURN_STATUS_LABEL, RETURN_TYPE_LABEL,
   RETURN_WINDOW_DAYS, SHIPPING, SHIPPING_METHOD_LABEL, STORE, formatDate,
@@ -49,28 +51,41 @@ const SIZE_ORDER = ["XS", "S", "M", "L", "XL", "F"];
 
 const TOOLS = {
   search_products: {
-    description: "搜尋商品。可以用關鍵字、分類、價格上限、尺寸篩選。回傳商品編號、名稱、價格、網址。",
+    description:
+      "找商品。query 可以是描述或需求（例如「下雨天穿的外套」「適合約會的洋裝」「亞麻」「NW012」），系統會用語意搜尋找意思相近的商品；也可以加上分類、價格上限、尺寸、只看特價等條件。回傳商品編號、名稱、價格、網址。",
     schema: z.object({
-      query: z.string().max(50).optional().describe("關鍵字，例如：亞麻、襯衫、NW012"),
+      query: z.string().max(80).optional().describe("顧客想找什麼，用顧客自己的話描述即可"),
       category: z.enum(["men", "women", "accessories"]).optional(),
       maxPrice: z.number().int().positive().optional(),
       size: z.enum(["XS", "S", "M", "L", "XL"]).optional().describe("只要這個尺寸有庫存的"),
       onSaleOnly: z.boolean().optional(),
     }),
     run: async (i: { query?: string; category?: string; maxPrice?: number; size?: string; onSaleOnly?: boolean }) => {
+      // 有描述 → 先從知識庫找「意思相近」的商品，保留它的排名
+      let rankedIds: string[] | null = null;
+      let retrieval: object | undefined;
+      if (i.query) {
+        const r = await searchKnowledge(i.query, { types: ["PRODUCT"], k: 12, minRerank: 0.1 });
+        rankedIds = r.hits.map((h) => h.sourceId);
+        retrieval = { mode: r.mode, ms: r.ms, matched: r.hits.map((h) => ({ title: h.title, scores: h.scores })), note: r.note };
+      }
+      // 再用資料庫檢查硬條件（分類、價格、尺寸、庫存）——這些一定要精確，不能交給語意搜尋
       const products = await prisma.product.findMany({
         where: {
           status: "ACTIVE",
-          ...(i.query && { OR: [{ name: { contains: i.query } }, { description: { contains: i.query } }, { material: { contains: i.query } }, { slug: { startsWith: i.query.toLowerCase() } }] }),
-          ...(i.category && { category: { OR: [{ slug: i.category }, { parent: { slug: i.category } }] } }),
-          ...(i.onSaleOnly && { salePrice: { not: null } }),
-          ...(i.maxPrice && { OR: [{ salePrice: { lte: i.maxPrice } }, { salePrice: null, price: { lte: i.maxPrice } }] }),
+          AND: [
+            ...(rankedIds ? [{ id: { in: rankedIds } }] : []),
+            ...(i.category ? [{ category: { OR: [{ slug: i.category }, { parent: { slug: i.category } }] } }] : []),
+            ...(i.onSaleOnly ? [{ salePrice: { not: null } }] : []),
+            ...(i.maxPrice ? [{ OR: [{ salePrice: { lte: i.maxPrice } }, { salePrice: null, price: { lte: i.maxPrice } }] }] : []),
+          ],
           variants: { some: { stock: { gt: 0 }, ...(i.size && { size: i.size }) } },
         },
-        take: 6,
-        select: { slug: true, name: true, price: true, salePrice: true, material: true },
+        take: rankedIds ? 12 : 6,
+        select: { id: true, slug: true, name: true, price: true, salePrice: true },
       });
-      return { count: products.length, products: products.map(productBrief) };
+      if (rankedIds) products.sort((a, b) => rankedIds!.indexOf(a.id) - rankedIds!.indexOf(b.id));
+      return { count: Math.min(6, products.length), products: products.slice(0, 6).map(productBrief), retrieval };
     },
   },
 
@@ -133,20 +148,27 @@ const TOOLS = {
     },
   },
 
-  search_faq: {
-    description: "查詢常見問題（付款、運送、退換貨、會員、商品保養）。回答規則類問題前先查。",
-    schema: z.object({ query: z.string().max(100) }),
-    run: async (i: { query: string }) => {
-      const faqs = await prisma.faq.findMany();
-      // 中文沒有空格，用「兩個字一組」比對相似度
-      const grams = (s: string) => new Set(Array.from({ length: Math.max(0, s.length - 1) }, (_, k) => s.slice(k, k + 2)));
-      const q = grams(i.query.replace(/\s/g, ""));
-      const scored = faqs
-        .map((f) => { const g = grams(f.question + f.answer); return { f, score: [...q].filter((x) => g.has(x)).length }; })
-        .filter((x) => x.score > 0)
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 3);
-      return { results: scored.map(({ f }) => ({ category: f.category, question: f.question, answer: f.answer })) };
+  search_knowledge: {
+    description:
+      "查詢北織的知識庫（RAG）：常見問題、商店規則、購物指南（尺寸怎麼挑、布料怎麼洗、配送時間、退換貨流程、穿搭建議）、目前有效的優惠碼。回答這類問題前一定要先查，並且只根據查到的內容回答。",
+    schema: z.object({
+      query: z.string().max(150).describe("要查的問題，用完整的句子效果最好"),
+      types: z.array(z.enum(["FAQ", "POLICY", "GUIDE", "PROMO", "PRODUCT"])).optional().describe("只查某些類型；不填就全部查"),
+    }),
+    run: async (i: { query: string; types?: ("FAQ" | "POLICY" | "GUIDE" | "PROMO" | "PRODUCT")[] }) => {
+      const r = await searchKnowledge(i.query, { types: i.types ?? ["FAQ", "POLICY", "GUIDE", "PROMO"], k: 4 });
+      return {
+        retrieval: { mode: r.mode, candidates: r.candidates, ms: r.ms, note: r.note },
+        results: r.hits.map((h, n) => ({
+          ref: n + 1, // 引用編號：後台追蹤可以對照 AI 用了哪一段
+          source: SOURCE_LABEL[h.sourceType],
+          title: h.title,
+          content: h.content,
+          ...(h.url && { url: `${SITE()}${h.url}` }),
+          scores: h.scores,
+        })),
+        ...(r.hits.length === 0 && { next: "知識庫找不到相關資料。請誠實告訴顧客不確定，必要時轉真人客服，不要自己編答案。" }),
+      };
     },
   },
 

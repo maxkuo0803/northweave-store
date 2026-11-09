@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
+import { reindexProduct } from "@/lib/knowledge/indexer";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireStaff } from "@/lib/session";
@@ -154,5 +156,7 @@ export async function updateProductAction(_: unknown, formData: FormData) {
     updates.map(([k, v]) => prisma.productVariant.update({ where: { id: k.slice(6), productId: id }, data: { stock: Math.min(99_999, Math.max(0, Math.floor(Number(v)) || 0)) } })),
   );
   revalidatePath("/", "layout");
+  // 商品改了 → 背景更新 AI 知識庫裡這件商品的內容（不讓店員等）
+  after(() => reindexProduct(id).catch((e) => console.error("[kb] reindex product failed", e)));
   return { ok: "已儲存" };
 }

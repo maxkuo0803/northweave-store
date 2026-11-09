@@ -15,7 +15,8 @@
     "db:studio": "prisma studio",
     "postinstall": "prisma generate",
     "db:deploy": "prisma migrate deploy",
-    "db:cloud-setup": "zsh scripts/setup-cloud-db.sh"
+    "db:cloud-setup": "zsh scripts/setup-cloud-db.sh",
+    "kb:index": "tsx --conditions=react-server scripts/kb-index.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.6.0",

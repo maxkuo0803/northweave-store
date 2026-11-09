@@ -42,7 +42,7 @@ export function mockModel(messages: Anthropic.MessageParam[], hasPending: boolea
     const kw = q.match(/(亞麻|棉|牛仔|襯衫|外套|洋裝|裙|褲|帽|包|T恤|針織|連帽)/)?.[0];
     if (kw) return call("search_products", { query: kw });
   }
-  if (q.length >= 4) return call("search_faq", { query: q });
+  if (q.length >= 4) return call("search_knowledge", { query: q });
   return text("你好，我是北織客服小織（模擬模式）！可以問我商品、運費、訂單進度或退換貨喔。");
 }
 
@@ -59,9 +59,9 @@ function describe(tool: string | undefined, r: Record<string, unknown>): string 
       const colors = (r.colors as { color: string; sizes: string }[]).map((c) => `・${c.color}：${c.sizes}`).join("\n");
       return `${r.code} ${r.name} ${formatPrice(r.price as number)}\n材質：${r.material}\n庫存：\n${colors}\n${r.url}`;
     }
-    case "search_faq": {
-      const f = (r.results as { question: string; answer: string }[])[0];
-      return f ? `${f.question}\n${f.answer}` : "這個問題我不太確定，要幫你轉接真人客服嗎？（回覆「真人」即可）";
+    case "search_knowledge": {
+      const f = (r.results as { title: string; content: string }[])[0];
+      return f ? `${f.title}\n${f.content}` : "這個問題我不太確定，要幫你轉接真人客服嗎？（回覆「真人」即可）";
     }
     case "get_store_policies": {
       const s = r.shipping as { freeThreshold: number; home: string; cvs: string };
