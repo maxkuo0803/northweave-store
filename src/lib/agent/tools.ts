@@ -12,7 +12,7 @@ import {
   RETURN_WINDOW_DAYS, SHIPPING, SHIPPING_METHOD_LABEL, STORE, formatDate,
 } from "@/lib/store-config";
 import type { Channel } from "@/generated/prisma/enums";
-import { maskName, maskPhone } from "./guard";
+import { maskEmail, maskName, maskPhone } from "./guard";
 
 // AI 能用的「工具」= 我們寫好的函式。AI 只能透過這些函式碰資料，
 // 所以它能看到什麼、能做什麼，完全由這個檔案決定（最重要的安全邊界）。
@@ -175,7 +175,13 @@ const TOOLS = {
         take: 8,
         include: { items: { select: { productName: true, quantity: true } } },
       });
+      // 一併告訴 AI「目前綁定 / 登入的是哪個帳號」：查不到訂單時，顧客才知道是不是綁錯帳號
+      const account = await prisma.user.findUnique({ where: { id: ctx.userId! }, select: { name: true, email: true } });
       return {
+        verifiedAccount: account ? `${maskName(account.name)}（${maskEmail(account.email)}）` : null,
+        ...(orders.length === 0 && {
+          note: "這個帳號沒有訂單。請告訴顧客目前驗證的是哪個帳號；如果訂單在別的帳號，請登入那個帳號重新綁定（LINE）或改用那個帳號的 Email 寄信。",
+        }),
         orders: orders.map((o) => ({
           orderNumber: o.orderNumber,
           status: ORDER_STATUS_LABEL[o.status],

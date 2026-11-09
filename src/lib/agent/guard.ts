@@ -69,3 +69,8 @@ export function maskName(name: string) {
 export function maskPhone(p: string) {
   return p.length >= 7 ? p.slice(0, 4) + "***" + p.slice(-3) : "***";
 }
+// Email 遮罩：demo@northweave.test → d***@northweave.test（讓顧客認得出是哪個帳號，但不完整外露）
+export function maskEmail(email: string) {
+  const [name, domain] = email.split("@");
+  return `${name.slice(0, 1)}***@${domain ?? ""}`;
+}
