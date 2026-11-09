@@ -27,7 +27,7 @@ export default async function OrderDetailPage({ params, searchParams }: PageProp
   return (
     <div className="space-y-6">
       {placed && (
-        <div className="rounded-sm bg-ok/10 p-5 text-ok">
+        <div className="rounded-2xl bg-ok/10 p-5 text-ok">
           <p className="font-bold">訂單已成立，謝謝您的購買！</p>
           <p className="mt-1 text-sm">訂單確認信已寄到 {user.email}（模擬）</p>
         </div>

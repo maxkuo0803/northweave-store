@@ -25,7 +25,11 @@ Legacy aliases `brand` → ink, `accent` → mark, `sand` → `#d6dadc` image gr
 - Permanent Marker (`font-marker`) only for product codes (NW001), prices, counts and other short Latin/numeral marks written "by hand". Never for sentences.
 
 ## Rules
-- Corners are square (`rounded-sm` = 2px). Round only for dots, swatch dots and progress bars.
+- Corners are rounded on a two-step scale (changed 2026-11-08 from square, at the owner's request for a more modern feel):
+  - `rounded-card` (20px): panels and cards (`card`, `neon-card`, list panels). Kraft hang tags and option tiles use `rounded-2xl` (16px).
+  - `rounded-sm` (10px): buttons, inputs, chips, alerts, thumbnails, swatches.
+  - `rounded-full`: badges, the header search field, breadcrumbs, dots and progress bars.
+  - The clothespin stays sharp (2px); it is a physical clip, not UI.
 - Depth is paper depth: a 1–2px contact line plus a soft blurred drop (`card`, `kraft-tag`, `neon-card`). No hard offset block shadows.
 - Red (`mark`) is reserved for the single decisive mark of a view: the sale price, the add-to-cart / checkout / place-order button, the marker circle on a chosen size. Regular prices are black marker.
 - Tags hang at small fixed tilts (−5°…+5°, deterministic by index) from `transform-origin: top`; they never tilt at random per render.

@@ -43,7 +43,7 @@ export default async function AccountPage() {
           <h2 className="font-bold">最近訂單</h2>
           <Link href="/account/orders" className="text-sm text-brand underline">全部訂單</Link>
         </div>
-        <ul className="divide-y divide-line rounded-sm border border-line bg-card">
+        <ul className="divide-y divide-line overflow-hidden rounded-card border border-line bg-card">
           {orders.map((o) => (
             <li key={o.id}>
               <Link href={`/account/orders/${o.orderNumber}`} className="flex flex-wrap items-center gap-3 px-5 py-4 text-sm hover:bg-sand/50">

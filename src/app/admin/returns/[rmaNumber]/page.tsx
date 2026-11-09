@@ -33,8 +33,8 @@ export default async function AdminReturnDetail({ params }: PageProps<"/admin/re
           <p><span className="text-muted">訂單：</span><Link href={`/admin/orders/${r.order.orderNumber}`} className="font-mono text-brand underline">{r.order.orderNumber}</Link>・送達 {r.order.deliveredAt ? formatDate(r.order.deliveredAt) : "—"}</p>
           <p><span className="text-muted">申請時間：</span>{formatDate(r.createdAt, true)}</p>
           <p><span className="text-muted">原因：</span>{RETURN_REASON_LABEL[r.reason]}</p>
-          {r.description && <p className="rounded bg-sand p-3">顧客說明：{r.description}</p>}
-          {r.adminNote && <p className="rounded bg-warn/10 p-3">處理備註：{r.adminNote}</p>}
+          {r.description && <p className="rounded-sm bg-sand p-3">顧客說明：{r.description}</p>}
+          {r.adminNote && <p className="rounded-sm bg-warn/10 p-3">處理備註：{r.adminNote}</p>}
           {r.refundAmount !== null && <p><span className="text-muted">退款金額：</span>{formatPrice(r.refundAmount)}</p>}
           <table className="mt-3 w-full">
             <tbody className="divide-y divide-line">

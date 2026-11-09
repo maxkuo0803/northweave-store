@@ -19,7 +19,7 @@ export function ReturnForm({ orderNumber, items }: { orderNumber: string; items:
         <h2 className="mb-3 font-bold">1. 選擇類型</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           {([["EXCHANGE", "換貨", "換其他尺寸或顏色，尺寸不合第一次換貨免運"], ["RETURN", "退貨退款", "退回商品並退款到原付款方式"]] as const).map(([v, t, d]) => (
-            <label key={v} className={cn("flex cursor-pointer gap-3 rounded-sm border p-4 text-sm", type === v ? "border-brand bg-brand/5" : "border-line bg-card")}>
+            <label key={v} className={cn("flex cursor-pointer gap-3 rounded-2xl border p-4 text-sm", type === v ? "border-brand bg-brand/5" : "border-line bg-card")}>
               <input type="radio" name="type" value={v} checked={type === v} onChange={() => setType(v)} className="mt-1" />
               <span><span className="font-medium">{t}</span><br /><span className="text-muted">{d}</span></span>
             </label>

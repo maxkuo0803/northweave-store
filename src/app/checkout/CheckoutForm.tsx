@@ -34,7 +34,7 @@ export function CheckoutForm({ lines, subtotal, addresses, user }: { lines: Line
     });
   }
 
-  const radio = (active: boolean) => cn("flex cursor-pointer items-start gap-3 rounded-sm border p-4 text-sm", active ? "border-brand bg-brand/5" : "border-line bg-card");
+  const radio = (active: boolean) => cn("flex cursor-pointer items-start gap-3 rounded-2xl border p-4 text-sm", active ? "border-brand bg-brand/5" : "border-line bg-card");
 
   return (
     <form action={action} className="mt-6 grid gap-8 lg:grid-cols-[1fr_340px]">
