@@ -1,6 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
 
+// 可以用 iframe 嵌入本站的網站（作品集）。可用環境變數 FRAME_ANCESTORS（空白分隔）覆蓋
+const FRAME_ANCESTORS = (process.env.FRAME_ANCESTORS ?? "https://max-ai-portfolio-tau.vercel.app https://max-ai-portfolio-max-0c94.vercel.app")
+  .split(/\s+/)
+  .filter(Boolean)
+  .concat(process.env.NODE_ENV === "development" ? ["http://localhost:8765"] : []);
+
 // 需要登入才能看的路徑
 const PROTECTED = ["/account", "/admin", "/checkout"];
 
@@ -34,7 +40,8 @@ export function proxy(request: NextRequest) {
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
-    "frame-ancestors 'none'", // 不准別的網站用 iframe 嵌入（防點擊劫持）
+    // 只准自己和作品集網站用 iframe 嵌入（作品集頁面有一個「北織首頁」視窗），其他網站一律不行（防點擊劫持）
+    `frame-ancestors 'self' ${FRAME_ANCESTORS.join(" ")}`,
     ...(isDev ? [] : ["upgrade-insecure-requests"]),
   ].join("; ");
 

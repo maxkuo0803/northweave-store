@@ -16,8 +16,8 @@ const nextConfig: NextConfig = {
           { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
           // 不准瀏覽器自己猜檔案類型
           { key: "X-Content-Type-Options", value: "nosniff" },
-          // 不准被別的網站用 iframe 嵌入（舊瀏覽器用；新瀏覽器看 CSP 的 frame-ancestors）
-          { key: "X-Frame-Options", value: "DENY" },
+          // 能不能被別的網站用 iframe 嵌入，改由 CSP 的 frame-ancestors 控制（見 src/proxy.ts）：
+          // 只允許自己和作品集網站。X-Frame-Options 沒辦法指定「允許某個網站」，所以拿掉。
           // 連到別的網站時，只透露網域，不透露完整網址
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           // 用不到的瀏覽器功能全部關掉
