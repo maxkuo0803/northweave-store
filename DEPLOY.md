@@ -67,6 +67,8 @@ npm run db:cloud-setup
 
 改完程式 → `git commit` → `git push`，Vercel 會自動重新部署，大約 1 分鐘後網站就更新了。
 
+如果改了 FAQ、指南（`src/lib/knowledge/guides.ts`）或 `store-config.ts` 的規則：部署後到後台「AI 知識庫」按「重建索引」，AI 才會用到新內容（改商品不用，會自動更新）。
+
 如果改了 `prisma/schema.prisma`：
 1. 本機先 `npm run db:migrate` 產生新的 migration 檔並 commit。
 2. 對雲端資料庫執行一次 `npm run db:deploy`（同第 2 步，設定 `DATABASE_URL`）。

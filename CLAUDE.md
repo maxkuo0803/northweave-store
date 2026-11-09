@@ -12,6 +12,7 @@
 - Better Auth（email + 密碼、admin plugin 管角色），Zod 驗證
 - AI：`@anthropic-ai/sdk`，客服模型由 `AGENT_MODEL` 決定（預設 claude-haiku-5-5）；沒有 API Key 時用模擬模式
 - AI 客服程式在 `src/lib/agent/`（工具 = 安全邊界，在 `tools.ts`），平台串接在 `src/lib/channels/`；每一步寫進 `AgentStep`
+- RAG 知識庫在 `src/lib/knowledge/`（BM25 + Voyage 向量 + RRF + rerank，向量存 JSON），`npm run kb:index` 重建；指南內容在 `guides.ts`
 
 ## 設計
 - 視覺系統是「布市攤位」，規則與色票見 `DESIGN.md`（紅色麥克筆一個畫面只用一次、直角、紙張陰影）
