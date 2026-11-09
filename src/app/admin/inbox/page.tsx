@@ -108,7 +108,7 @@ export default async function Inbox({ searchParams }: PageProps<"/admin/inbox">)
         )}
       </div>
 
-      <div className="card divide-y divide-line">
+      <div className="card divide-y divide-line overflow-hidden">
         {convs.map((c) => {
           const last = c.messages[0];
           return (

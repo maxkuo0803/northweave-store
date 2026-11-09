@@ -78,7 +78,7 @@ export default async function ConversationPage({ params }: PageProps<"/admin/inb
                 </p>
                 <div
                   className={cn(
-                    "max-w-[85%] rounded-sm px-3 py-2 text-sm leading-relaxed break-words whitespace-pre-wrap",
+                    "max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed break-words whitespace-pre-wrap",
                     m.role === "CUSTOMER" && "border border-line bg-white",
                     m.role === "AI" && "bg-ink text-white",
                     m.role === "STAFF" && "bg-neon text-ink",
@@ -132,7 +132,7 @@ export default async function ConversationPage({ params }: PageProps<"/admin/inb
                 const ms = steps.reduce((s, x) => s + x.latencyMs, 0);
                 const trigger = (steps[0].input as { message?: string } | null)?.message;
                 return (
-                  <div key={steps[0].runId} className="rounded-sm border border-line bg-white p-3">
+                  <div key={steps[0].runId} className="rounded-2xl border border-line bg-white p-3">
                     <p className="text-xs text-muted">{formatDate(steps[0].createdAt, true)}・{(ms / 1000).toFixed(1)} 秒・{(inTok + outTok).toLocaleString()} token・US${estimateCostUsd(inTok, outTok).toFixed(5)}</p>
                     {trigger && <p className="mt-1 line-clamp-2 text-sm font-bold">「{trigger}」</p>}
                     <ol className="mt-2 space-y-1.5 border-l-2 border-line pl-3">
@@ -172,7 +172,7 @@ function Json({ label, value }: { label: string; value: unknown }) {
   return (
     <div>
       <p className="font-bold text-muted">{label}</p>
-      <pre className="max-h-60 overflow-auto rounded-sm bg-paper p-2 text-[11px] leading-snug whitespace-pre-wrap">{JSON.stringify(value, null, 2)}</pre>
+      <pre className="max-h-60 overflow-auto rounded-lg bg-paper p-2 text-[11px] leading-snug whitespace-pre-wrap">{JSON.stringify(value, null, 2)}</pre>
     </div>
   );
 }

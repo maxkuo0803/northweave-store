@@ -159,7 +159,7 @@ export function ChatWidget({ siteOrigin }: { siteOrigin: string }) {
             {messages.length === 0 && (
               <div className="flex items-start gap-2">
                 <BotAvatar className="mt-0.5 h-8 w-8" />
-                <div className="rounded-sm bg-card p-3 text-sm leading-relaxed shadow-sm">
+                <div className="rounded-2xl rounded-tl-md bg-card p-3 text-sm leading-relaxed shadow-sm">
                   你好，我是北織客服小織！可以問我商品尺寸、搭配推薦、訂單進度，或直接幫你申請退換貨。
                   <p className="mt-2 text-xs text-muted">請不要在對話中提供信用卡號或密碼。</p>
                 </div>
@@ -169,7 +169,7 @@ export function ChatWidget({ siteOrigin }: { siteOrigin: string }) {
             {sending && (
               <div className="flex items-center gap-2" role="status">
                 <BotAvatar className="h-8 w-8" thinking />
-                <span className="flex gap-1 rounded-sm bg-card px-3 py-2.5 shadow-sm" aria-label="小織正在查詢">
+                <span className="flex gap-1 rounded-2xl rounded-tl-md bg-card px-3.5 py-3 shadow-sm" aria-label="小織正在查詢">
                   {[0, 1, 2].map((i) => (
                     <span key={i} className="h-1.5 w-1.5 animate-bounce rounded-full bg-ink/50 motion-reduce:animate-none" style={{ animationDelay: `${i * 150}ms` }} />
                   ))}
@@ -231,7 +231,7 @@ function Bubble({ m, siteOrigin }: { m: Msg; siteOrigin: string }) {
     return (
       <div className="flex items-start gap-2">
         <BotAvatar className="mt-0.5 h-8 w-8" />
-        <div className="max-w-[80%] rounded-sm bg-card px-3 py-2 text-sm leading-relaxed break-words whitespace-pre-wrap text-ink shadow-sm">
+        <div className="max-w-[80%] rounded-2xl rounded-tl-md bg-card px-3.5 py-2.5 text-sm leading-relaxed break-words whitespace-pre-wrap text-ink shadow-sm">
           <Linkify text={m.content} siteOrigin={siteOrigin} />
         </div>
       </div>
@@ -242,14 +242,24 @@ function Bubble({ m, siteOrigin }: { m: Msg; siteOrigin: string }) {
       {m.role === "STAFF" && <span className="mb-0.5 text-[11px] font-bold text-muted">真人客服</span>}
       <div
         className={cn(
-          "max-w-[85%] rounded-sm px-3 py-2 text-sm leading-relaxed break-words whitespace-pre-wrap",
-          mine ? "bg-ink text-white" : m.role === "STAFF" ? "bg-neon text-ink shadow-sm" : "bg-card text-ink shadow-sm",
+          "max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed break-words whitespace-pre-wrap",
+          mine ? "rounded-br-md bg-ink text-white" : m.role === "STAFF" ? "rounded-tl-md bg-neon text-ink shadow-sm" : "bg-card text-ink shadow-sm",
         )}
       >
         <Linkify text={m.content} siteOrigin={siteOrigin} />
       </div>
     </div>
   );
+}
+
+// 連結文字：商品連結顯示編號（查看 NW035），一次列好幾個連結時才分得出來
+function linkLabel(href: string) {
+  const code = href.match(/^\/products\/(nw\d+)/i)?.[1];
+  if (code) return `查看 ${code.toUpperCase()}`;
+  if (href.startsWith("/account/returns/")) return "查看退換貨進度";
+  if (href.startsWith("/account/orders/")) return "查看訂單";
+  if (href.startsWith("/account")) return "前往會員中心";
+  return "開啟連結";
 }
 
 // 把網址變成可以點的連結（React 會自動跳脫文字，不會有 XSS）；站內網址改成相對路徑
@@ -267,7 +277,7 @@ function Linkify({ text, siteOrigin }: { text: string; siteOrigin: string }) {
         } catch {
           return <Fragment key={i}>{p}</Fragment>;
         }
-        return <Link key={i} href={href} className="font-bold underline decoration-2">{href.startsWith("/products/") ? "查看商品" : href.startsWith("/account") ? "前往會員中心" : "開啟連結"}</Link>;
+        return <Link key={i} href={href} className="font-bold underline decoration-2">{linkLabel(href)}</Link>;
       })}
     </>
   );
@@ -304,13 +314,13 @@ function NudgeCard({ nudge, onClose, onMute, onAsk }: { nudge: Nudge; onClose: (
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={p.image} alt="" className="mx-auto -mt-1 h-16 w-16 object-contain transition-transform duration-300 group-hover:-translate-y-0.5" />
                 <span
-                  className="kraft-tag swing-tag swing-on-hover mx-auto -mt-2 block w-[92%] px-1.5 pt-1 pb-1.5 text-left text-[11px] leading-tight"
+                  className="kraft-tag swing-tag swing-on-hover mx-auto -mt-2 block w-[92%] rounded-xl px-1.5 pt-1 pb-1.5 text-left text-[11px] leading-tight"
                   style={{ ["--tilt" as string]: `${[-4, 3, -2][i % 3]}deg` }}
                 >
                   <span className="font-marker text-[10px] opacity-70">{p.code}</span>
                   <span className="block truncate font-bold">{p.name}</span>
                   <span className="font-marker text-sm">{p.price.toLocaleString()}</span>
-                  {p.onSale && <span className="ml-1 rounded-sm bg-neon px-1 text-[10px] font-black">特價</span>}
+                  {p.onSale && <span className="ml-1 rounded-full bg-neon px-1.5 text-[10px] font-black">特價</span>}
                 </span>
               </Link>
             </li>
