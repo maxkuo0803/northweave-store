@@ -8,6 +8,7 @@ import { RETURN_WINDOW_DAYS, SHIPPING, formatDate } from "@/lib/store-config";
 import { toggleWishlistAction } from "@/app/cart/actions";
 import { productCode } from "@/components/ProductCard";
 import { VariantPicker } from "./VariantPicker";
+import { TrackView } from "@/components/chat/TrackView";
 
 export async function generateMetadata({ params }: PageProps<"/products/[slug]">): Promise<Metadata> {
   const product = await getProductBySlug((await params).slug);
@@ -38,6 +39,8 @@ export default async function ProductPage({ params }: PageProps<"/products/[slug
 
   return (
     <div>
+      {/* 記錄瀏覽紀錄，給推薦用 */}
+      <TrackView productId={product.id} />
       <section className="pegboard pt-8 pb-16">
         <div className="mx-auto max-w-6xl px-4">
           <nav aria-label="麵包屑" className="mb-8 inline-flex flex-wrap gap-1 rounded-sm bg-card/90 px-3 py-1.5 text-sm shadow-sm">

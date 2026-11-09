@@ -5,7 +5,8 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
-import { CANCELLABLE, getOrderForUser, returnEligibility, returnableQuantities } from "@/lib/orders";
+import { CANCELLABLE } from "@/lib/orders";
+import { createReturn, type ReturnItemInput } from "@/lib/returns";
 
 export async function cancelOrderAction(formData: FormData) {
   const orderNumber = String(formData.get("orderNumber"));
@@ -59,43 +60,18 @@ export async function createReturnAction(_: ReturnFormState, formData: FormData)
   const { orderNumber, type, reason, description } = parsed.data;
   const user = await requireUser(`/account/orders/${orderNumber}`);
 
-  const order = await getOrderForUser(orderNumber, user.id);
-  if (!order) return { error: "找不到訂單" };
-  const eligible = returnEligibility(order);
-  if (!eligible.ok) return { error: eligible.reason };
-  const remaining = returnableQuantities(order);
-
   // 表單欄位：qty_<orderItemId>、exchange_<orderItemId>
-  const items: { orderItemId: string; quantity: number; exchangeVariantId: string | null }[] = [];
-  for (const it of order.items) {
-    const qty = Number(formData.get(`qty_${it.id}`) ?? 0);
+  const items: ReturnItemInput[] = [];
+  for (const [key, value] of formData.entries()) {
+    if (!key.startsWith("qty_")) continue;
+    const orderItemId = key.slice(4);
+    const qty = Number(value);
     if (!Number.isInteger(qty)) return { error: "數量格式錯誤" };
-    if (!qty) continue;
-    if (qty < 0 || qty > remaining[it.id]) return { error: `${it.productName} 最多可申請 ${remaining[it.id]} 件` };
-    let exchangeVariantId: string | null = null;
-    if (type === "EXCHANGE") {
-      exchangeVariantId = String(formData.get(`exchange_${it.id}`) ?? "") || null;
-      if (!exchangeVariantId) return { error: `請選擇 ${it.productName} 要換成的顏色 / 尺寸` };
-      // 只能換同一件商品的其他 SKU，且要有庫存
-      const target = await prisma.productVariant.findFirst({ where: { id: exchangeVariantId, productId: it.variant?.productId, stock: { gte: qty } } });
-      if (!target || target.id === it.variantId) return { error: `${it.productName} 要換的尺寸 / 顏色庫存不足` };
-    }
-    items.push({ orderItemId: it.id, quantity: qty, exchangeVariantId });
+    if (qty) items.push({ orderItemId, quantity: qty, exchangeVariantId: String(formData.get(`exchange_${orderItemId}`) ?? "") || null });
   }
-  if (items.length === 0) return { error: "請至少選擇一件商品" };
-
-  const rma = await prisma.returnRequest.create({
-    data: {
-      // 時間戳 + 亂數，避免同時申請時編號重複
-      rmaNumber: `RMA${Date.now().toString().slice(-7)}${Math.floor(Math.random() * 90 + 10)}`,
-      orderId: order.id,
-      userId: user.id,
-      type,
-      reason,
-      description: description || null,
-      items: { create: items },
-    },
-  });
+  // 規則檢查（鑑賞期、可退數量、換貨庫存）都在 createReturn 裡，AI 客服也共用
+  const rma = await createReturn(user.id, { orderNumber, type, reason, description, items });
+  if (!rma.ok) return { error: rma.error };
   revalidatePath("/", "layout");
   redirect(`/account/returns/${rma.rmaNumber}?created=1`);
 }

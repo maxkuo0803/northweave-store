@@ -2,7 +2,7 @@
 
 # AI 客服 BOT 作品集
 
-虛構服飾品牌「NORTHWEAVE 北織」的電商網站（已完成）+ AI 客服 BOT（下一階段）。
+虛構服飾品牌「NORTHWEAVE 北織」的電商網站 + AI 客服 BOT（網站 / LINE / Gmail，後台 `/admin/inbox`）。
 使用者正在學習架網站：說明要白話、程式碼加中文註解；優先選免費 / 低成本方案。
 
 ## 技術棧
@@ -10,7 +10,8 @@
 - MySQL 8.4（本機安裝在 `~/.local/mysql`，資料在 `~/.local/mysql-data`，`npm run db:start` 啟動）
 - Prisma 7：設定檔是 `prisma7.config.ts`（讀 `.env.local`），client 產生到 `src/generated/prisma`，用 `@prisma/adapter-mariadb`
 - Better Auth（email + 密碼、admin plugin 管角色），Zod 驗證
-- AI：`@anthropic-ai/sdk`，模型由 `CLAUDE_MODEL` 環境變數決定
+- AI：`@anthropic-ai/sdk`，客服模型由 `AGENT_MODEL` 決定（預設 claude-haiku-5-5）；沒有 API Key 時用模擬模式
+- AI 客服程式在 `src/lib/agent/`（工具 = 安全邊界，在 `tools.ts`），平台串接在 `src/lib/channels/`；每一步寫進 `AgentStep`
 
 ## 設計
 - 視覺系統是「布市攤位」，規則與色票見 `DESIGN.md`（紅色麥克筆一個畫面只用一次、直角、紙張陰影）

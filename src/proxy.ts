@@ -44,6 +44,10 @@ export function proxy(request: NextRequest) {
 
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set("Content-Security-Policy", csp);
+  // 訪客 ID：隨機字串，用來記住「這個瀏覽器看過哪些商品」和聊天紀錄（不含任何個資）
+  if (!request.cookies.get("nw_vid")) {
+    response.cookies.set("nw_vid", crypto.randomUUID(), { httpOnly: true, sameSite: "lax", secure: !isDev, maxAge: 60 * 60 * 24 * 180, path: "/" });
+  }
   return response;
 }
 

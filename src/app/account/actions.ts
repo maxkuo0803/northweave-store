@@ -86,3 +86,20 @@ export async function setDefaultAddressAction(formData: FormData) {
   ]);
   revalidatePath("/account/addresses");
 }
+
+// ── 綁定 LINE 官方帳號：產生綁定碼，顧客傳「綁定 123456」給 LINE 官方帳號 ──
+export async function createLineLinkCodeAction(): Promise<ActionState> {
+  const user = await requireUser();
+  if (!(await rateLimit(`linecode:${user.id}`, 5, 600))) return { error: TOO_MANY };
+  const { createLineLinkCode } = await import("@/lib/channels/inbound");
+  const code = await createLineLinkCode(user.id);
+  return { ok: `綁定碼 ${code}（10 分鐘內有效）：請在 LINE 傳「綁定 ${code}」給北織官方帳號。` };
+}
+
+export async function unlinkLineAction(formData: FormData) {
+  const user = await requireUser();
+  const id = String(formData.get("id"));
+  // 條件帶 userId：只能解除自己的綁定
+  await prisma.channelLink.deleteMany({ where: { id, userId: user.id } });
+  revalidatePath("/account");
+}

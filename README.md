@@ -1,6 +1,6 @@
 # NORTHWEAVE 北織 — 服飾電商 + AI 客服 BOT 作品集
 
-一個「從登入到退換貨」功能完整的服飾電商網站（虛構品牌、假資料），之後會串接 AI 客服 BOT，讓 BOT 能查訂單、查物流、回答退換貨規則。
+一個「從登入到退換貨」功能完整的服飾電商網站（虛構品牌、假資料），加上 AI 客服 BOT：在網站、LINE、Gmail 回答商品問題、主動推薦商品、查訂單與物流、代辦符合規定的退換貨，處理不了就轉真人客服。
 
 ## 功能
 
@@ -19,6 +19,44 @@
 - 退換貨審核：核准 / 拒絕 → 收到退貨（回補庫存）→ 退款 / 寄出換貨（扣新 SKU 庫存）
 - 商品與庫存：改價、特價、上下架、顏色 × 尺寸庫存矩陣
 - 會員列表：訂單數、累計消費
+
+## AI 客服「小織」
+
+**顧客端**
+- 網站右下角「問小織」聊天視窗；LINE 官方帳號；Gmail 客服信箱 —— 三個平台同一個 AI、同一套規則
+- 回答商品（材質、尺寸、庫存）、運費、鑑賞期等問題；查訂單、物流、退換貨進度
+- 代辦退換貨：先依規則檢查（7 天鑑賞期、可退數量、換貨庫存）→ 條列內容請顧客確認 → 顧客回覆「確認」才送出
+- **主動推薦**：在商品頁 / 購物車停留一下，會跳出搭配推薦或「差多少免運」的提示（規則計算，不花 AI 費用；可關閉）
+- 處理不了（例外、賠償、瑕疵、顧客不滿、要求真人）→ 自動轉真人客服
+
+**後台「客服中心」**（`/admin/inbox`）
+- 所有平台的對話集中管理，待人工的排最前面
+- **AI 步驟追蹤**：每則訊息 AI 做了哪些安全檢查、呼叫哪些工具、輸入輸出、花幾秒、多少 token / 美金
+- 真人直接回覆：系統自動用顧客來的平台回（網站 / LINE / Email），回覆後 AI 自動暫停，按「交還 AI」恢復
+
+**個資與資安**
+- AI 只能透過我們寫好的「工具」拿資料（`src/lib/agent/tools.ts`），查訂單一律用「已驗證的會員 ID」，不接受 AI 傳入的帳號
+- 身分驗證：網站要登入；LINE 要用網站產生的綁定碼綁定；Email 要寄件者通過 SPF/DKIM 且是會員信箱。沒驗證只能問一般問題
+- 顧客貼的信用卡號、身分證字號在存檔和送給 AI 之前就遮蔽；收件人姓名電話只給遮罩版本；庫存只說「有貨 / 少量 / 售完」
+- 會改資料的動作（退換貨）由程式檢查「顧客真的在下一則訊息確認了」，不靠 AI 自律
+- AI 回覆送出前再掃一次，擋掉卡號、不相關的 Email、疑似洩漏系統設定的內容
+- 限流：每段對話每分鐘 6 則、每人每天 60 則、全站每天上限（`AGENT_DAILY_LIMIT`）
+- LINE webhook 驗簽章、Gmail 定時收信要密碼；公開的展示店員帳號不能回覆真實 LINE / Email 顧客
+
+**費用**：預設用 Claude Haiku 5.5（每百萬 token 輸入 US$0.10 / 輸出 US$0.50），系統提示詞有快取，一則回覆約 US$0.001–0.003。沒有設定 API Key 時自動使用「模擬模式」（關鍵字規則，免費），流程一樣可以 Demo。
+
+### 串接 LINE 官方帳號
+1. 到 [LINE Developers](https://developers.line.biz/) 建立 Provider → Messaging API channel（會同時建立官方帳號）
+2. Basic settings 複製 **Channel secret** → `LINE_CHANNEL_SECRET`；Messaging API 頁籤發行 **Channel access token** → `LINE_CHANNEL_ACCESS_TOKEN`
+3. Webhook URL 填 `https://你的網域/api/webhooks/line`，打開 Use webhook；到 LINE Official Account Manager 把「自動回應訊息」關掉
+4. 顧客在網站「會員中心 → 綁定 LINE 客服」取得綁定碼，傳「綁定 123456」給官方帳號，之後就能查訂單
+
+### 串接 Gmail
+1. [Google Cloud Console](https://console.cloud.google.com/) 建專案 → 啟用 Gmail API → OAuth 同意畫面（外部、加自己為測試使用者）→ 建立 OAuth 用戶端（類型選「網頁應用程式」，重新導向 URI 加 `https://developers.google.com/oauthplayground`）
+2. 到 [OAuth Playground](https://developers.google.com/oauthplayground)：右上齒輪勾「Use your own OAuth credentials」填入 Client ID / Secret → scope 填 `https://www.googleapis.com/auth/gmail.modify` → 授權 → 換取 token，複製 **Refresh token**
+3. 填入 `GMAIL_ADDRESS`、`GMAIL_CLIENT_ID`、`GMAIL_CLIENT_SECRET`、`GMAIL_REFRESH_TOKEN`、`CRON_SECRET`
+4. 定時收信：Vercel 免費方案的 Cron 一天只能跑一次，建議用免費的 [cron-job.org](https://cron-job.org) 每 5 分鐘呼叫 `GET https://你的網域/api/cron/gmail`，Header 加 `Authorization: Bearer <CRON_SECRET>`。後台客服中心也有「立即收 Gmail」按鈕
+5. 自動寄的信（電子報、退信、no-reply）不會回，避免機器人互相回信
 
 ## 技術選擇（全部免費）
 

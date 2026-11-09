@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Noto_Sans_TC, Permanent_Marker } from "next/font/google";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
+import { ChatWidget } from "@/components/chat/ChatWidget";
 import { STORE } from "@/lib/store-config";
 import "./globals.css";
 
@@ -22,6 +23,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <Header />
         <main className="flex-1">{children}</main>
         <Footer />
+        {/* AI 客服聊天視窗（後台不顯示） */}
+        <ChatWidget siteOrigin={new URL(process.env.BETTER_AUTH_URL || "http://localhost:3000").origin} />
       </body>
     </html>
   );
