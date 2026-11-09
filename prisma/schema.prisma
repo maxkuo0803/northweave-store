@@ -485,6 +485,8 @@ model Message {
   content          String      @db.Text // 存的是遮罩過個資的版本（信用卡號、身分證字號不落地）
   staffId          String? // 人工回覆的客服
   channelMessageId String? // 平台上的訊息 ID（Email 的 Message-ID，用來接續信件串）
+  // 附件（網站聊天視窗用）：商品卡片 { products: [...] }、按鈕 { links: [...] }、是否要重新整理頁面 { refresh }
+  attachments      Json?
   // 送到外部平台的結果：SENT / FAILED（失敗原因放 deliveryError）
   delivery         String?
   deliveryError    String?     @db.Text

@@ -13,10 +13,12 @@ export async function saveAndDeliver(
   conversationId: string,
   role: Extract<MessageRole, "AI" | "STAFF" | "SYSTEM">,
   text: string,
-  opts: DeliverOptions & { staffId?: string } = {},
+  opts: DeliverOptions & { staffId?: string; attachments?: object | null } = {},
 ) {
   const conv = await prisma.conversation.findUniqueOrThrow({ where: { id: conversationId } });
-  const msg = await prisma.message.create({ data: { conversationId, role, content: text, staffId: opts.staffId ?? null } });
+  const msg = await prisma.message.create({
+    data: { conversationId, role, content: text, staffId: opts.staffId ?? null, ...(opts.attachments && { attachments: opts.attachments }) },
+  });
   await prisma.conversation.update({ where: { id: conversationId }, data: { lastMessageAt: new Date() } });
 
   let delivery = "SENT";

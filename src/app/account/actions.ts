@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { isDemoEmail } from "@/lib/store-config";
 import { TOO_MANY, rateLimit } from "@/lib/rate-limit";
+import { addAddress, deleteAddress, setDefaultAddress } from "@/lib/shop";
 
 const DEMO_LOCKED = "這是公開的展示帳號，不能修改個人資料和密碼（自己註冊一個帳號就可以試）";
 
@@ -59,31 +60,21 @@ export async function addAddressAction(_: ActionState, formData: FormData): Prom
   const user = await requireUser();
   const parsed = addressSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
-  // 一個帳號最多 10 筆地址，避免被灌爆
-  if ((await prisma.address.count({ where: { userId: user.id } })) >= 10) return { error: "最多只能存 10 筆地址" };
-  const isDefault = formData.get("isDefault") === "on" || (await prisma.address.count({ where: { userId: user.id } })) === 0;
-  await prisma.$transaction(async (tx) => {
-    if (isDefault) await tx.address.updateMany({ where: { userId: user.id }, data: { isDefault: false } });
-    await tx.address.create({ data: { ...parsed.data, userId: user.id, isDefault } });
-  });
+  const r = await addAddress(user.id, parsed.data, formData.get("isDefault") === "on");
+  if (!r.ok) return { error: r.error };
   revalidatePath("/account/addresses");
   return { ok: "已新增地址" };
 }
 
 export async function deleteAddressAction(formData: FormData) {
   const user = await requireUser();
-  // where 同時帶 userId：確保只能刪自己的地址（防止改 id 刪別人的）
-  await prisma.address.deleteMany({ where: { id: String(formData.get("id")), userId: user.id } });
+  await deleteAddress(user.id, String(formData.get("id")));
   revalidatePath("/account/addresses");
 }
 
 export async function setDefaultAddressAction(formData: FormData) {
   const user = await requireUser();
-  const id = String(formData.get("id"));
-  await prisma.$transaction([
-    prisma.address.updateMany({ where: { userId: user.id }, data: { isDefault: false } }),
-    prisma.address.updateMany({ where: { id, userId: user.id }, data: { isDefault: true } }),
-  ]);
+  await setDefaultAddress(user.id, String(formData.get("id")));
   revalidatePath("/account/addresses");
 }
 

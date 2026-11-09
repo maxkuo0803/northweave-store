@@ -2,7 +2,6 @@ import "server-only";
 import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@/generated/prisma/client";
 import { getOrderForUser, returnDeadline, returnEligibility, returnableQuantities } from "@/lib/orders";
 import { createReturn } from "@/lib/returns";
 import { recommendFor } from "@/lib/recommend";
@@ -15,6 +14,9 @@ import {
 } from "@/lib/store-config";
 import type { Channel } from "@/generated/prisma/enums";
 import { maskEmail, maskName, maskPhone } from "./guard";
+import { confirmPending, stagePending } from "./pending";
+import { SHOP_TOOLS } from "./shop-tools";
+import { SITE, productBrief, productImageSelect, type AgentContext, type ProductCard, type ToolDef } from "./tool-kit";
 
 // AI 能用的「工具」= 我們寫好的函式。AI 只能透過這些函式碰資料，
 // 所以它能看到什麼、能做什麼，完全由這個檔案決定（最重要的安全邊界）。
@@ -24,22 +26,7 @@ import { maskEmail, maskName, maskPhone } from "./guard";
 // 2. 只回傳回答問題需要的欄位（地址、電話會遮罩，庫存只說有沒有貨，不說確切數字）。
 // 3. 會改資料的動作（建立退換貨）分兩步：先提案 → 顧客在下一則訊息確認 → 才執行，由程式檢查，不靠 AI 自律。
 
-export type AgentContext = {
-  conversationId: string;
-  channel: Channel;
-  userId: string | null; // 已驗證身分的會員；null = 不知道是誰
-  visitorId: string | null;
-  currentPath?: string | null;
-};
-
-type ToolDef = {
-  description: string;
-  schema: z.ZodObject;
-  needsUser?: boolean; // 需要先驗證會員身分
-  run: (input: never, ctx: AgentContext) => Promise<unknown>;
-};
-
-const SITE = () => process.env.BETTER_AUTH_URL || "http://localhost:3000";
+export type { AgentContext } from "./tool-kit";
 
 function verifyHint(channel: Channel) {
   if (channel === "WEB") return "請先登入會員（右上角「登入」），登入後就能查訂單。";
@@ -49,7 +36,7 @@ function verifyHint(channel: Channel) {
 
 const SIZE_ORDER = ["XS", "S", "M", "L", "XL", "F"];
 
-const TOOLS = {
+const BASE_TOOLS = {
   search_products: {
     description:
       "找商品。query 可以是描述或需求（例如「下雨天穿的外套」「適合約會的洋裝」「亞麻」「NW012」），系統會用語意搜尋找意思相近的商品；也可以加上分類、價格上限、尺寸、只看特價等條件。回傳商品編號、名稱、價格、網址。",
@@ -82,7 +69,7 @@ const TOOLS = {
           variants: { some: { stock: { gt: 0 }, ...(i.size && { size: i.size }) } },
         },
         take: rankedIds ? 12 : 6,
-        select: { id: true, slug: true, name: true, price: true, salePrice: true },
+        select: { id: true, slug: true, name: true, price: true, salePrice: true, images: productImageSelect },
       });
       if (rankedIds) products.sort((a, b) => rankedIds!.indexOf(a.id) - rankedIds!.indexOf(b.id));
       return { count: Math.min(6, products.length), products: products.slice(0, 6).map(productBrief), retrieval };
@@ -96,7 +83,7 @@ const TOOLS = {
       const code = i.code.trim().toLowerCase().replace(/^.*\/products\//, "");
       const p = await prisma.product.findFirst({
         where: { status: "ACTIVE", OR: [{ slug: code }, { slug: { startsWith: code + "-" } }] },
-        include: { variants: true, reviews: { select: { rating: true, fit: true } }, category: { select: { name: true } } },
+        include: { variants: true, images: productImageSelect, reviews: { select: { rating: true, fit: true } }, category: { select: { name: true } } },
       });
       if (!p) return { error: "找不到這個商品" };
       const colors = [...new Set(p.variants.map((v) => v.color))].map((color) => ({
@@ -288,49 +275,25 @@ const TOOLS = {
       const input = { ...i, orderNumber: i.orderNumber.trim().toUpperCase() };
       const check = await createReturn(ctx.userId!, input, { dryRun: true });
       if (!check.ok) return { ok: false, error: check.error };
-      await prisma.conversation.update({
-        where: { id: ctx.conversationId },
-        data: { pendingAction: { kind: "CREATE_RETURN", payload: input, createdAt: new Date().toISOString() } },
-      });
-      return {
-        ok: true,
-        next: "已暫存，尚未送出。請用條列向顧客確認：訂單編號、退貨或換貨、商品與數量（換貨要寫換成什麼）、原因，並請顧客回覆「確認」。",
-        summary: { orderNumber: input.orderNumber, type: RETURN_TYPE_LABEL[i.type], reason: RETURN_REASON_LABEL[i.reason] },
-      };
+      const order = await getOrderForUser(input.orderNumber, ctx.userId!);
+      const names = Object.fromEntries((order?.items ?? []).map((it) => [it.id, `${it.productName}（${it.color} / ${it.size}）`]));
+      const exch = await prisma.productVariant.findMany({ where: { id: { in: i.items.map((x) => x.exchangeVariantId ?? "").filter(Boolean) } }, select: { id: true, color: true, size: true } });
+      const summary = [
+        `訂單 ${input.orderNumber}・${RETURN_TYPE_LABEL[i.type]}・原因：${RETURN_REASON_LABEL[i.reason]}`,
+        ...i.items.map((x) => {
+          const to = exch.find((v) => v.id === x.exchangeVariantId);
+          return `・${names[x.orderItemId] ?? "商品"} × ${x.quantity}${to ? ` → 換成 ${to.color} / ${to.size}` : ""}`;
+        }),
+      ].join("\n");
+      return stagePending(ctx, { kind: "CREATE_RETURN", payload: input }, summary);
     },
   },
 
   confirm_pending_action: {
-    description: "顧客明確回覆確認之後，送出先前 propose_return 暫存的申請。顧客還沒確認前不可以呼叫。",
+    description: "顧客明確回覆「確認」之後，執行先前 propose_xxx 暫存的動作（下單、取消訂單、退換貨、地址、個人資料）。顧客還沒確認前不可以呼叫。",
     needsUser: true,
     schema: z.object({}),
-    run: async (_: object, ctx) => {
-      const conv = await prisma.conversation.findUnique({ where: { id: ctx.conversationId }, select: { pendingAction: true } });
-      const pending = conv?.pendingAction as { kind: string; payload: Parameters<typeof createReturn>[1]; createdAt: string } | null;
-      if (!pending) return { ok: false, error: "沒有等待確認的申請" };
-      // 程式檢查：暫存之後，顧客真的有再傳一則「確認」類的訊息（不能由 AI 自己決定顧客同意了）
-      const after = await prisma.message.findFirst({
-        where: { conversationId: ctx.conversationId, role: "CUSTOMER", createdAt: { gt: new Date(pending.createdAt) } },
-        orderBy: { createdAt: "desc" },
-      });
-      if (!after) return { ok: false, error: "顧客還沒回覆，請先等顧客確認" };
-      if (!/(確認|確定|好|是的|對|沒問題|可以|麻煩|ok|yes|送出)/i.test(after.content) || /(不要|不用了|取消|等等|不對|不是|先不)/.test(after.content)) {
-        return { ok: false, error: "顧客的回覆不是明確的確認，請再問一次，或詢問要修改哪裡" };
-      }
-      if (Date.now() - new Date(pending.createdAt).getTime() > 30 * 60_000) {
-        await prisma.conversation.update({ where: { id: ctx.conversationId }, data: { pendingAction: Prisma.DbNull } });
-        return { ok: false, error: "確認已超過 30 分鐘，請重新建立申請" };
-      }
-      const r = await createReturn(ctx.userId!, pending.payload, { note: `由 AI 客服代為申請（${ctx.channel}）` });
-      await prisma.conversation.update({ where: { id: ctx.conversationId }, data: { pendingAction: Prisma.DbNull } });
-      if (!r.ok) return { ok: false, error: r.error };
-      return {
-        ok: true,
-        rmaNumber: r.rmaNumber,
-        next: "申請已送出，等待客服審核（1–2 個工作天）。核准後會通知寄回方式。",
-        url: `${SITE()}/account/returns/${r.rmaNumber}`,
-      };
-    },
+    run: async (_: object, ctx: AgentContext) => confirmPending(ctx),
   },
 
   list_my_returns: {
@@ -375,17 +338,9 @@ const TOOLS = {
   },
 } satisfies Record<string, ToolDef>;
 
+// 查詢類 + 購物操作類（shop-tools.ts）
+const TOOLS = { ...BASE_TOOLS, ...SHOP_TOOLS };
 export type ToolName = keyof typeof TOOLS;
-
-function productBrief(p: { slug: string; name: string; price: number; salePrice: number | null }) {
-  return {
-    code: p.slug.split("-")[0].toUpperCase(),
-    name: p.name,
-    price: p.salePrice ?? p.price,
-    ...(p.salePrice && { originalPrice: p.price, onSale: true }),
-    url: `${SITE()}/products/${p.slug}`,
-  };
-}
 
 // 轉成 Claude API 要的工具格式（順序固定，提示詞快取才會命中）
 export function toolDefinitions(): Anthropic.Tool[] {
@@ -406,9 +361,24 @@ export async function runTool(name: string, rawInput: unknown, ctx: AgentContext
   const parsed = tool.schema.safeParse(rawInput ?? {});
   if (!parsed.success) return { ok: false, result: { error: "參數格式錯誤", detail: parsed.error.issues.map((x) => `${x.path.join(".")}: ${x.message}`) } };
   try {
-    return { ok: true, result: await tool.run(parsed.data as never, ctx) };
+    const result = await tool.run(parsed.data as never, ctx);
+    collectProducts(result, ctx);
+    return { ok: true, result };
   } catch (e) {
     console.error(`[agent] tool ${name} failed`, e);
     return { ok: false, result: { error: "系統查詢失敗，請稍後再試或轉人工" } };
   }
+}
+
+// 工具結果裡出現的商品（有編號、名稱、價格、圖片）都記下來；
+// 最後 AI 的回覆提到哪幾件，聊天視窗就顯示那幾件的商品卡片
+function collectProducts(value: unknown, ctx: AgentContext, depth = 0) {
+  if (!value || typeof value !== "object" || depth > 4) return;
+  if (Array.isArray(value)) return value.forEach((v) => collectProducts(v, ctx, depth + 1));
+  const o = value as Record<string, unknown>;
+  if (typeof o.code === "string" && typeof o.name === "string" && typeof o.price === "number" && typeof o.image === "string" && o.image && typeof o.url === "string") {
+    const { code, name, price, originalPrice, onSale, url, image } = o as unknown as ProductCard;
+    ctx.effects.products.set(code, { code, name, price, originalPrice, onSale, url, image });
+  }
+  for (const v of Object.values(o)) collectProducts(v, ctx, depth + 1);
 }

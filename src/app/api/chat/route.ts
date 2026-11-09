@@ -13,8 +13,8 @@ import { sameOrigin, webIdentity } from "@/lib/agent/web";
 
 export const maxDuration = 30; // AI 最多想 30 秒
 
-type PublicMessage = { id: string; role: string; content: string; createdAt: Date };
-const publicFields = { id: true, role: true, content: true, createdAt: true } as const;
+type PublicMessage = { id: string; role: string; content: string; attachments: unknown; createdAt: Date };
+const publicFields = { id: true, role: true, content: true, attachments: true, createdAt: true } as const;
 
 async function myConversation() {
   const who = await webIdentity();

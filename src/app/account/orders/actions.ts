@@ -5,30 +5,13 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
-import { CANCELLABLE } from "@/lib/orders";
 import { createReturn, type ReturnItemInput } from "@/lib/returns";
+import { cancelOrder, cancelReturn } from "@/lib/shop";
 
 export async function cancelOrderAction(formData: FormData) {
   const orderNumber = String(formData.get("orderNumber"));
   const user = await requireUser(`/account/orders/${orderNumber}`);
-  const order = await prisma.order.findFirst({ where: { orderNumber, userId: user.id }, include: { items: true } });
-  if (!order || !CANCELLABLE.includes(order.status)) return;
-
-  await prisma.$transaction(async (tx) => {
-    // 歸還庫存
-    for (const it of order.items) {
-      if (it.variantId) await tx.productVariant.update({ where: { id: it.variantId }, data: { stock: { increment: it.quantity } } });
-    }
-    await tx.order.update({
-      where: { id: order.id },
-      data: {
-        status: "CANCELLED",
-        cancelledAt: new Date(),
-        paymentStatus: order.paymentStatus === "PAID" ? "REFUNDED" : order.paymentStatus,
-        history: { create: { status: "CANCELLED", note: order.paymentStatus === "PAID" ? "顧客取消訂單，款項將於 3–5 個工作天退回" : "顧客取消訂單" } },
-      },
-    });
-  });
+  await cancelOrder(user.id, orderNumber);
   revalidatePath("/", "layout");
 }
 
@@ -78,7 +61,6 @@ export async function createReturnAction(_: ReturnFormState, formData: FormData)
 
 export async function cancelReturnAction(formData: FormData) {
   const user = await requireUser("/account/returns");
-  const rmaNumber = String(formData.get("rmaNumber"));
-  await prisma.returnRequest.updateMany({ where: { rmaNumber, userId: user.id, status: "REQUESTED" }, data: { status: "CANCELLED" } });
+  await cancelReturn(user.id, String(formData.get("rmaNumber")));
   revalidatePath("/", "layout");
 }

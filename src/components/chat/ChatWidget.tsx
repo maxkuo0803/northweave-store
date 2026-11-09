@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { BotAvatar } from "./BotAvatar";
@@ -10,7 +10,10 @@ import { BotAvatar } from "./BotAvatar";
 // - 打開時每 4 秒問一次有沒有新訊息（真人客服的回覆也是這樣收到）
 // - 沒打開時，在商品頁 / 購物車停留一段時間，會跳出推薦泡泡（規則計算，不花 AI 費用）
 
-type Msg = { id: string; role: "CUSTOMER" | "AI" | "STAFF" | "SYSTEM"; content: string; createdAt: string };
+// AI 回覆可以附帶：商品卡片、按鈕（例如「前往結帳」）、要不要重新整理頁面（購物車有變動）
+type Card = { code: string; name: string; price: number; originalPrice?: number; onSale?: boolean; url: string; image: string };
+type Attachments = { products?: Card[]; links?: { label: string; href: string }[]; refresh?: boolean };
+type Msg = { id: string; role: "CUSTOMER" | "AI" | "STAFF" | "SYSTEM"; content: string; attachments?: Attachments | null; createdAt: string };
 type NudgeProduct = { slug: string; code: string; name: string; price: number; onSale: boolean; image: string };
 type Nudge = { message: string; products: NudgeProduct[] };
 
@@ -29,6 +32,7 @@ const ls = () => (typeof window === "undefined" ? undefined : window.localStorag
 // siteOrigin：AI 回覆裡的網址用的網域（BETTER_AUTH_URL），用來判斷是不是站內連結
 export function ChatWidget({ siteOrigin }: { siteOrigin: string }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [status, setStatus] = useState("AI");
@@ -111,6 +115,8 @@ export function ChatWidget({ siteOrigin }: { siteOrigin: string }) {
       }
       setStatus(data.status);
       merge(data.messages);
+      // 小織幫忙加了購物車 / 下了單 → 重新整理頁面資料（右上角購物車數量、購物車頁會更新）
+      if ((data.messages as Msg[]).some((m) => m.attachments?.refresh)) router.refresh();
     } catch {
       setMessages((m) => m.filter((x) => x.id !== temp.id));
       setError("網路好像斷了，請再試一次");
@@ -165,7 +171,7 @@ export function ChatWidget({ siteOrigin }: { siteOrigin: string }) {
                 </div>
               </div>
             )}
-            {messages.map((m) => <Bubble key={m.id} m={m} siteOrigin={siteOrigin} />)}
+            {messages.map((m) => <Bubble key={m.id} m={m} siteOrigin={siteOrigin} onAsk={send} busy={sending} />)}
             {sending && (
               <div className="flex items-center gap-2" role="status">
                 <BotAvatar className="h-8 w-8" thinking />
@@ -224,15 +230,29 @@ export function ChatWidget({ siteOrigin }: { siteOrigin: string }) {
   );
 }
 
-function Bubble({ m, siteOrigin }: { m: Msg; siteOrigin: string }) {
+function Bubble({ m, siteOrigin, onAsk, busy }: { m: Msg; siteOrigin: string; onAsk: (text: string) => void; busy: boolean }) {
   if (m.role === "SYSTEM") return <p className="text-center text-xs font-bold text-muted">{m.content}</p>;
   const mine = m.role === "CUSTOMER";
   if (m.role === "AI") {
+    const a = m.attachments;
     return (
       <div className="flex items-start gap-2">
         <BotAvatar className="mt-0.5 h-8 w-8" />
-        <div className="max-w-[80%] rounded-2xl rounded-tl-md bg-card px-3.5 py-2.5 text-sm leading-relaxed break-words whitespace-pre-wrap text-ink shadow-sm">
-          <Linkify text={m.content} siteOrigin={siteOrigin} />
+        <div className="min-w-0 max-w-[85%] space-y-2">
+          <div className="rounded-2xl rounded-tl-md bg-card px-3.5 py-2.5 text-sm leading-relaxed break-words whitespace-pre-wrap text-ink shadow-sm">
+            <Linkify text={m.content} siteOrigin={siteOrigin} />
+          </div>
+          {a?.products && a.products.length > 0 && <ProductCards products={a.products} onAsk={onAsk} busy={busy} />}
+          {a?.links && a.links.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {a.links.map((l) => (
+                <Link key={l.href} href={l.href} className="inline-flex items-center gap-1 rounded-full bg-ink px-3 py-1.5 text-xs font-bold text-white hover:bg-black">
+                  {l.label}
+                  <ArrowIcon className="h-3.5 w-3.5" />
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -249,6 +269,48 @@ function Bubble({ m, siteOrigin }: { m: Msg; siteOrigin: string }) {
         <Linkify text={m.content} siteOrigin={siteOrigin} />
       </div>
     </div>
+  );
+}
+
+// 商品卡片：可以橫向滑動；「加入購物車」會請小織接手（小織會問顏色、尺寸）
+function ProductCards({ products, onAsk, busy }: { products: Card[]; onAsk: (text: string) => void; busy: boolean }) {
+  return (
+    <ul className="-mr-3 flex snap-x gap-2 overflow-x-auto pr-3 pb-1" aria-label="推薦商品">
+      {products.map((p) => (
+        <li key={p.code} className="w-36 shrink-0 snap-start overflow-hidden rounded-2xl bg-card shadow-sm">
+          <Link href={p.url} className="group block">
+            <div className="relative bg-sand/70 px-3 pt-3 pb-1">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={p.image} alt={p.name} loading="lazy" className="mx-auto h-24 w-24 object-contain drop-shadow transition-transform duration-300 group-hover:-translate-y-0.5" />
+              {p.onSale && <span className="absolute top-2 left-2 rounded-full bg-neon px-1.5 text-[10px] font-black">特價</span>}
+            </div>
+            <div className="px-2.5 pt-1.5">
+              <p className="font-marker text-[10px] text-muted">{p.code}</p>
+              <p className="line-clamp-2 min-h-[2.5em] text-xs leading-tight font-bold group-hover:underline">{p.name}</p>
+              <p className="mt-0.5 flex items-baseline gap-1">
+                <span className="font-marker text-base">{p.price.toLocaleString()}</span>
+                {p.originalPrice && <span className="text-[10px] text-muted line-through">{p.originalPrice.toLocaleString()}</span>}
+              </p>
+            </div>
+          </Link>
+          <button
+            onClick={() => onAsk(`幫我把 ${p.code} ${p.name} 加入購物車`)}
+            disabled={busy}
+            className="m-2.5 mt-1.5 w-[calc(100%-1.25rem)] rounded-full border border-ink/25 py-1 text-[11px] font-bold hover:border-ink disabled:opacity-50"
+          >
+            加入購物車
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function ArrowIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" className={className} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M3 8h10M9 4l4 4-4 4" />
+    </svg>
   );
 }
 

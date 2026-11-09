@@ -9,6 +9,7 @@ import { AGENT_MODEL, LIMITS, isMockMode } from "./config";
 import { checkOutput, handoffTrigger, looksLikeInjection, maskName, redactPII } from "./guard";
 import { SYSTEM_PROMPT } from "./prompt";
 import { runTool, toolDefinitions, type AgentContext } from "./tools";
+import { newEffects, type ReplyEffects } from "./tool-kit";
 import { mockModel, type ModelTurn } from "./mock";
 
 // AI 客服的主流程：一則顧客訊息進來 → 跑完下面的步驟 → 回覆（或轉人工）。
@@ -82,13 +83,16 @@ export async function respond(conversationId: string, opts: RespondOptions = {})
   }
 
   // ── 2. 呼叫模型 ⇄ 工具 ──
-  const ctx: AgentContext = { conversationId, channel: conv.channel, userId: conv.userId, visitorId: opts.visitorId ?? null, currentPath: opts.currentPath };
+  const ctx: AgentContext = { conversationId, channel: conv.channel, userId: conv.userId, visitorId: opts.visitorId ?? null, currentPath: opts.currentPath, effects: newEffects() };
   const messages = toApiMessages(history);
   // 每次會變的資訊放在最後的 system 訊息：上面的系統提示詞和歷史訊息才能被快取
   messages.push({
     role: "system",
     content: [
       `平台：${{ WEB: "網站聊天視窗", LINE: "LINE 官方帳號", EMAIL: "Email" }[conv.channel]}`,
+      conv.channel === "WEB"
+        ? "網址規則：網站聊天視窗會自動把你提到的商品顯示成圖片卡片、把 open_page 等工具的連結顯示成按鈕，所以回覆裡不要貼網址。"
+        : "網址規則：這個平台不會顯示卡片或按鈕，推薦商品或帶顧客去某一頁時，請把網址放在該項目後面。",
       `顧客身分：${conv.userId ? `已驗證會員（${maskName(conv.user?.name ?? "")}）` : "未驗證（不能透露任何訂單資料）"}`,
       `現在時間：${formatDate(new Date(), true)}（台北）`,
       ...(opts.currentPath ? [`顧客正在看的頁面：${opts.currentPath}`] : []),
@@ -142,7 +146,26 @@ export async function respond(conversationId: string, opts: RespondOptions = {})
   await log.add(after.status === "WAITING_HUMAN" ? "HANDOFF" : "REPLY", after.status === "WAITING_HUMAN" ? "AI 轉人工" : "送出回覆", {
     output: { text: checked.text, outputIssues: checked.issues.length ? checked.issues : undefined, channel: conv.channel },
   });
-  return saveAndDeliver(conversationId, "AI", checked.text, opts);
+  const attachments = buildAttachments(checked.text, ctx.effects);
+  if (attachments) await log.add("REPLY", "附件", { output: attachments });
+  return saveAndDeliver(conversationId, "AI", checked.text, { ...opts, attachments });
+}
+
+// 回覆的附件（網站聊天視窗用）：回覆裡提到的商品 → 商品卡片；工具要求的按鈕；要不要重新整理頁面
+function buildAttachments(text: string, fx: ReplyEffects) {
+  // 依照商品在回覆裡出現的順序排（用編號或商品名稱比對），最多 6 張
+  const mentioned = [...fx.products.values()]
+    .map((p) => {
+      const i = [text.indexOf(p.code), text.indexOf(p.name)].filter((x) => x >= 0);
+      return { p, at: i.length ? Math.min(...i) : -1 };
+    })
+    .filter((x) => x.at >= 0)
+    .sort((a, b) => a.at - b.at)
+    .slice(0, 6)
+    .map((x) => ({ ...x.p, url: new URL(x.p.url).pathname }));
+  const links = [...new Map(fx.links.map((l) => [l.href, l])).values()].slice(0, 3);
+  if (!mentioned.length && !links.length && !fx.refresh) return null;
+  return { ...(mentioned.length && { products: mentioned }), ...(links.length && { links }), ...(fx.refresh && { refresh: true }) };
 }
 
 async function handoffNow(conversationId: string, log: StepLog, reason: string, opts: DeliverOptions) {
