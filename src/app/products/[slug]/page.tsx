@@ -9,17 +9,13 @@ import { toggleWishlistAction } from "@/app/cart/actions";
 import { productCode } from "@/components/ProductCard";
 import { VariantPicker } from "./VariantPicker";
 import { TrackView } from "@/components/chat/TrackView";
+import { SIZE_CHART, sizeChartFor } from "@/lib/size-chart";
 
 export async function generateMetadata({ params }: PageProps<"/products/[slug]">): Promise<Metadata> {
   const product = await getProductBySlug((await params).slug);
   return { title: product?.name ?? "找不到商品", description: product?.description };
 }
 
-const SIZE_CHART: Record<string, string[][]> = {
-  top: [["尺寸", "胸寬", "衣長", "肩寬"], ["XS", "48", "62", "42"], ["S", "51", "65", "45"], ["M", "54", "68", "47"], ["L", "57", "71", "49"], ["XL", "60", "74", "51"]],
-  bottom: [["尺寸", "腰圍", "臀圍", "褲長"], ["XS / 24-25", "62", "88", "96"], ["S / 26-28", "68", "92", "98"], ["M / 29-30", "74", "96", "100"], ["L / 32-34", "80", "100", "102"], ["XL / 36", "86", "104", "104"]],
-};
-const BOTTOMS = ["pants", "shorts", "skirt"];
 const FIT_LABEL: Record<string, string> = { SMALL: "偏小", TRUE: "剛好", LARGE: "偏大" };
 
 export default async function ProductPage({ params }: PageProps<"/products/[slug]">) {
@@ -33,7 +29,7 @@ export default async function ProductPage({ params }: PageProps<"/products/[slug
   const avg = n ? product.reviews.reduce((s, r) => s + r.rating, 0) / n : 0;
   const fit = { SMALL: 0, TRUE: 0, LARGE: 0 } as Record<string, number>;
   product.reviews.forEach((r) => r.fit && fit[r.fit]++);
-  const chart = SIZE_CHART[BOTTOMS.includes(product.garmentType) ? "bottom" : "top"];
+  const chart = sizeChartFor(product.garmentType, product.variants.map((v) => v.size)) ?? SIZE_CHART.top;
   const isAccessory = product.variants.every((v) => v.size === "F");
   const path = `/products/${slug}`;
 

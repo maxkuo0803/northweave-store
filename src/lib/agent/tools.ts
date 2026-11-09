@@ -6,6 +6,7 @@ import { Prisma } from "@/generated/prisma/client";
 import { getOrderForUser, returnDeadline, returnEligibility, returnableQuantities } from "@/lib/orders";
 import { createReturn } from "@/lib/returns";
 import { recommendFor } from "@/lib/recommend";
+import { sizeChartFor } from "@/lib/size-chart";
 import {
   ORDER_STATUS_LABEL, PAYMENT_METHOD_LABEL, RETURN_REASON_LABEL, RETURN_STATUS_LABEL, RETURN_TYPE_LABEL,
   RETURN_WINDOW_DAYS, SHIPPING, SHIPPING_METHOD_LABEL, STORE, formatDate,
@@ -74,7 +75,7 @@ const TOOLS = {
   },
 
   get_product: {
-    description: "查一件商品的詳細資訊：材質、洗滌、各顏色尺寸有沒有貨、評價與尺寸回饋。用商品編號（NW001）或網址代號。",
+    description: "查一件商品的詳細資訊：材質、洗滌、尺寸表（公分）、各顏色尺寸有沒有貨、評價與尺寸回饋。用商品編號（NW001）或網址代號。",
     schema: z.object({ code: z.string().max(60).describe("商品編號，例如 NW012；或網址最後一段") }),
     run: async (i: { code: string }) => {
       const code = i.code.trim().toLowerCase().replace(/^.*\/products\//, "");
@@ -102,6 +103,19 @@ const TOOLS = {
         material: p.material,
         care: p.care,
         colors,
+        // 尺寸表（公分，平量）：顧客問「我該穿哪個尺寸」時用來比對
+        sizeChart: (() => {
+          const chart = sizeChartFor(p.garmentType, p.variants.map((v) => v.size));
+          if (!chart) return "單一尺寸（F）";
+          const isBottom = chart[0][1] === "腰圍";
+          return {
+            // 把單位講清楚，AI 才不會把「吋」和「公分」搞混
+            note: isBottom
+              ? "尺寸欄斜線後的數字是腰圍「吋」數；腰圍、臀圍、褲長是平量「公分」。商品若用 28、30、32 這種數字當尺寸，那就是腰圍吋數（1 吋 ≈ 2.54 公分）。"
+              : "胸寬、衣長、肩寬都是平放測量的「公分」（胸寬 × 2 ≈ 胸圍）。",
+            rows: chart.map((row) => row.join(" / ")),
+          };
+        })(),
         reviews: n ? { count: n, average: +(p.reviews.reduce((s, r) => s + r.rating, 0) / n).toFixed(1), fit: `偏小 ${fit.SMALL}、剛好 ${fit.TRUE}、偏大 ${fit.LARGE}` } : null,
       };
     },

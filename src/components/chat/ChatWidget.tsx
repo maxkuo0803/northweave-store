@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { BotAvatar } from "./BotAvatar";
 
 // 右下角的客服聊天視窗 + 主動推薦泡泡。
 // - 打開時每 4 秒問一次有沒有新訊息（真人客服的回覆也是這樣收到）
@@ -122,7 +123,7 @@ export function ChatWidget({ siteOrigin }: { siteOrigin: string }) {
   if (pathname.startsWith("/admin")) return null;
 
   return (
-    <div className="fixed right-4 bottom-4 z-50 flex flex-col items-end gap-3 print:hidden">
+    <div className="fixed right-3 bottom-3 z-50 flex flex-col items-end gap-1 print:hidden">
       {nudge && !open && (
         <NudgeCard
           nudge={nudge}
@@ -138,7 +139,11 @@ export function ChatWidget({ siteOrigin }: { siteOrigin: string }) {
           className="card flex h-[min(560px,calc(100dvh-6rem))] w-[min(380px,calc(100vw-2rem))] flex-col overflow-hidden"
         >
           <header className="flex items-center gap-3 bg-ink px-4 py-3 text-white">
-            <ChatIcon className="h-5 w-5" />
+            <span className="relative">
+              <BotAvatar className="h-11 w-11" thinking={sending} />
+              {/* 上線中的小燈：真人接手時變灰 */}
+              <span className={cn("absolute -right-0.5 bottom-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-ink", status === "AI" ? "bg-neon" : "bg-white/40")} />
+            </span>
             <div className="min-w-0 flex-1 leading-tight">
               <p className="font-black">客服小織</p>
               <p className="text-xs text-white/75">
@@ -152,13 +157,25 @@ export function ChatWidget({ siteOrigin }: { siteOrigin: string }) {
 
           <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto bg-paper/60 px-3 py-4" aria-live="polite">
             {messages.length === 0 && (
-              <div className="rounded-sm bg-card p-3 text-sm leading-relaxed shadow-sm">
-                你好，我是北織客服小織！可以問我商品尺寸、搭配推薦、訂單進度，或直接幫你申請退換貨。
-                <p className="mt-2 text-xs text-muted">請不要在對話中提供信用卡號或密碼。</p>
+              <div className="flex items-start gap-2">
+                <BotAvatar className="mt-0.5 h-8 w-8" />
+                <div className="rounded-sm bg-card p-3 text-sm leading-relaxed shadow-sm">
+                  你好，我是北織客服小織！可以問我商品尺寸、搭配推薦、訂單進度，或直接幫你申請退換貨。
+                  <p className="mt-2 text-xs text-muted">請不要在對話中提供信用卡號或密碼。</p>
+                </div>
               </div>
             )}
             {messages.map((m) => <Bubble key={m.id} m={m} siteOrigin={siteOrigin} />)}
-            {sending && <p className="pl-1 text-xs text-muted">小織正在查詢…</p>}
+            {sending && (
+              <div className="flex items-center gap-2" role="status">
+                <BotAvatar className="h-8 w-8" thinking />
+                <span className="flex gap-1 rounded-sm bg-card px-3 py-2.5 shadow-sm" aria-label="小織正在查詢">
+                  {[0, 1, 2].map((i) => (
+                    <span key={i} className="h-1.5 w-1.5 animate-bounce rounded-full bg-ink/50 motion-reduce:animate-none" style={{ animationDelay: `${i * 150}ms` }} />
+                  ))}
+                </span>
+              </div>
+            )}
           </div>
 
           {messages.length === 0 && (
@@ -189,9 +206,18 @@ export function ChatWidget({ siteOrigin }: { siteOrigin: string }) {
       )}
 
       {!open && (
-        <button onClick={() => setOpen(true)} className="btn-primary h-12 gap-2 px-4" aria-label="開啟客服對話">
-          <ChatIcon className="h-5 w-5" />
-          問小織
+        // 只有小織本人浮在右下角：滑鼠移上去會歪頭，旁邊冒出「問小織」吊牌
+        <button
+          onClick={() => setOpen(true)}
+          aria-label="開啟客服對話，AI 客服小織"
+          className="group relative flex items-center rounded-sm outline-offset-4"
+        >
+          <span className="kraft-tag pointer-events-none absolute right-full mr-1 translate-x-2 px-2.5 py-1 text-sm font-black whitespace-nowrap opacity-0 transition-[opacity,transform] duration-200 group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100 motion-reduce:transition-none">
+            問小織
+          </span>
+          <span className={cn("block", nudge ? "bot-hop" : "bot-float")}>
+            <BotAvatar className="h-[76px] w-[76px] transition-transform duration-300 group-hover:-rotate-8 motion-reduce:transition-none" />
+          </span>
         </button>
       )}
     </div>
@@ -201,6 +227,16 @@ export function ChatWidget({ siteOrigin }: { siteOrigin: string }) {
 function Bubble({ m, siteOrigin }: { m: Msg; siteOrigin: string }) {
   if (m.role === "SYSTEM") return <p className="text-center text-xs font-bold text-muted">{m.content}</p>;
   const mine = m.role === "CUSTOMER";
+  if (m.role === "AI") {
+    return (
+      <div className="flex items-start gap-2">
+        <BotAvatar className="mt-0.5 h-8 w-8" />
+        <div className="max-w-[80%] rounded-sm bg-card px-3 py-2 text-sm leading-relaxed break-words whitespace-pre-wrap text-ink shadow-sm">
+          <Linkify text={m.content} siteOrigin={siteOrigin} />
+        </div>
+      </div>
+    );
+  }
   return (
     <div className={cn("flex flex-col", mine ? "items-end" : "items-start")}>
       {m.role === "STAFF" && <span className="mb-0.5 text-[11px] font-bold text-muted">真人客服</span>}
@@ -237,42 +273,67 @@ function Linkify({ text, siteOrigin }: { text: string; siteOrigin: string }) {
   );
 }
 
+// 小織主動推薦：一張從小織頭上冒出來的對話框（白色告示紙 + 螢光紙膠帶），
+// 推薦商品掛在一小段鐵桿上，跟店裡的陳列一樣
 function NudgeCard({ nudge, onClose, onMute, onAsk }: { nudge: Nudge; onClose: () => void; onMute: () => void; onAsk: () => void }) {
   return (
-    <aside aria-label="推薦商品" className="neon-card relative w-[min(340px,calc(100vw-2rem))] origin-bottom-right animate-[nudge-in_420ms_cubic-bezier(0.22,1,0.36,1)] p-4">
-      <button onClick={onClose} aria-label="關閉推薦" className="absolute top-2 right-2 rounded-sm p-1 hover:bg-black/10">
+    <aside
+      aria-label="小織推薦"
+      className="card relative mr-3 mb-1 w-[min(330px,calc(100vw-2.5rem))] origin-bottom-right animate-[nudge-in_480ms_cubic-bezier(0.22,1,0.36,1)] px-4 pt-5 pb-3"
+    >
+      {/* 螢光紙膠帶：把便條貼在空中 */}
+      <span className="absolute -top-3 left-4 -rotate-3 bg-neon/90 px-3 py-0.5 text-xs font-black tracking-wider shadow-[0_1px_0_rgb(0_0_0/.12)]">
+        小織推薦
+      </span>
+      <button onClick={onClose} aria-label="關閉推薦" className="absolute top-2 right-2 rounded-sm p-1 text-muted hover:bg-ink/5 hover:text-ink">
         <CloseIcon className="h-4 w-4" />
       </button>
-      <p className="pr-6 text-sm font-bold leading-snug">{nudge.message}</p>
-      <ul className="mt-3 grid grid-cols-3 gap-2">
-        {nudge.products.map((p, i) => (
-          <li key={p.slug}>
-            <Link href={`/products/${p.slug}`} onClick={onClose} className="group block text-center">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={p.image} alt="" className="mx-auto h-16 w-16 object-contain drop-shadow" />
-              <span className="kraft-tag swing-tag swing-on-hover mt-1 block px-1 py-1 text-[11px] leading-tight" style={{ ["--tilt" as string]: `${[-3, 2, -2][i % 3]}deg` }}>
-                <span className="block truncate font-bold">{p.name}</span>
-                <span className="font-marker">NT${p.price.toLocaleString()}</span>
-                {p.onSale && <span className="ml-1 font-bold">特價</span>}
-              </span>
-            </Link>
-          </li>
-        ))}
-      </ul>
-      <div className="mt-3 flex items-center justify-between gap-2 text-xs">
-        <button onClick={onMute} className="text-ink/70 underline hover:text-ink">不要再推薦</button>
-        <button onClick={onAsk} className="btn-primary px-3 py-1.5 text-xs">問小織怎麼搭</button>
-      </div>
-    </aside>
-  );
-}
 
-function ChatIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden>
-      <path d="M4 5h16v11H9l-5 4z" />
-      <path d="M8 9.5h8M8 12.5h5" strokeLinecap="round" />
-    </svg>
+      <p className="pr-6 text-[15px] leading-snug font-bold">{nudge.message}</p>
+
+      {/* 一小段鐵桿，商品掛在上面 */}
+      <div className="relative mt-4">
+        <span aria-hidden className="absolute inset-x-0 top-0 h-1.5 rounded-full bg-rail shadow-[0_2px_0_rgb(0_0_0/.18)]" />
+        <ul className="grid grid-cols-3 gap-2 pt-1">
+          {nudge.products.map((p, i) => (
+            <li key={p.slug}>
+              <Link href={`/products/${p.slug}`} onClick={onClose} className="group block text-center outline-offset-2">
+                <svg aria-hidden viewBox="0 0 24 20" className="mx-auto h-4 w-5 text-rail">
+                  <path d="M12 0 V6 Q12 11 7 11 Q3 11 3 7" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+                </svg>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={p.image} alt="" className="mx-auto -mt-1 h-16 w-16 object-contain transition-transform duration-300 group-hover:-translate-y-0.5" />
+                <span
+                  className="kraft-tag swing-tag swing-on-hover mx-auto -mt-2 block w-[92%] px-1.5 pt-1 pb-1.5 text-left text-[11px] leading-tight"
+                  style={{ ["--tilt" as string]: `${[-4, 3, -2][i % 3]}deg` }}
+                >
+                  <span className="font-marker text-[10px] opacity-70">{p.code}</span>
+                  <span className="block truncate font-bold">{p.name}</span>
+                  <span className="font-marker text-sm">{p.price.toLocaleString()}</span>
+                  {p.onSale && <span className="ml-1 rounded-sm bg-neon px-1 text-[10px] font-black">特價</span>}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* 縫線分隔 + 動作 */}
+      <div className="mt-3 flex items-center justify-between border-t border-dashed border-kraft-dark/50 pt-2.5 text-xs">
+        <button onClick={onMute} className="text-muted hover:text-ink hover:underline">不要再推薦</button>
+        <button onClick={onAsk} className="group/ask inline-flex items-center gap-1 text-sm font-black">
+          <span className="underline decoration-neon decoration-[3px] underline-offset-4 group-hover/ask:decoration-ink">問小織怎麼搭</span>
+          <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 transition-transform group-hover/ask:translate-x-0.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 8h10M9 4l4 4-4 4" />
+          </svg>
+        </button>
+      </div>
+
+      {/* 對話框的尾巴，指向下面的小織 */}
+      <svg aria-hidden viewBox="0 0 20 14" className="absolute -bottom-[13px] right-7 h-3.5 w-5 text-card drop-shadow-[0_2px_1px_rgb(0_0_0/.08)]">
+        <path d="M0 0 H20 L14 13 Q13 14 12 12 Z" fill="currentColor" />
+      </svg>
+    </aside>
   );
 }
 

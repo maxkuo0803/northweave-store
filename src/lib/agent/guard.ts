@@ -45,7 +45,8 @@ export const looksLikeInjection = (text: string) => INJECTION.test(text);
 // 就算模型出錯，也不會把卡號、別人的 Email、內部資料送出去
 export function checkOutput(text: string, allowedEmails: string[] = []) {
   const issues: string[] = [];
-  let out = redactPII(text).text;
+  // 去掉 Markdown 粗體 / 標題符號（LINE、Email 不會轉成粗體，只會顯示星號）
+  let out = redactPII(text).text.replace(/\*\*(.+?)\*\*/g, "$1").replace(/^#{1,6}\s+/gm, "");
   out = out.replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g, (m) => {
     if (allowedEmails.includes(m.toLowerCase())) return m;
     issues.push(`移除了不該出現的 Email：${m}`);
