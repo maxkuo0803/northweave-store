@@ -48,3 +48,13 @@ Utilities: `container-x` (max-w-7xl, 20/32px gutters), `pegboard`, `pegboard-sof
 - `Footer`: dark rail ground, link columns, and a full-width SVG `NORTHWEAVE` wordmark clipped at the bottom.
 - Product page: sticky stage with per-color thumbnails on the left; on the right a code, serif name, star rating, mono price, round color swatches, ink size buttons, a − n + stepper, a full-width red add-to-cart button and three reassurance lines.
 - Buttons: `btn-primary` (ink pill), `btn-mark` (red pill, one per view), `btn-outline`, `btn-danger`.
+
+## 小織 (AI clerk), added 2026-11-10
+The shop is **conversation-first**: by default the home page *is* 小織, the AI clerk. Shoppers who prefer browsing pick 「自己逛」.
+- **Shop mode** is stored in the `nw_mode` cookie (`concierge` by default, or `browse`), read on the server (`src/lib/shop-mode.ts`) so the page never flashes the wrong version. `ModeSwitch` sits in the header (xl+) or in the category row (smaller screens).
+- **Orb** (`XiaozhiOrb`): a glowing yarn ball, with neon, kraft and white threads circling a dark core. States: `idle` breathes slowly, `listening` pulses, `thinking` spins fast, `speaking` throbs. It replaces the cardboard robot face in all chat UI. Static under reduced motion.
+- **Surface** (`XiaozhiSurface`), Siri-style, on an `ink` ground: no chat bubbles. The shopper's words sit right-aligned in `white/60`; 小織's words sit left in large white type. Older turns fade to 60%. Product cards stay as light `card`s on the dark ground. The input pill is pinned at the bottom with a neon mic button (browser speech recognition, zh-TW) that becomes a send button once text is typed.
+- **Home stage** (`src/app/Concierge.tsx`): a big orb, a serif greeting, quick chips and "today's" three garments in the empty state. The page scrolls naturally and the input stays sticky (the section uses `overflow-clip`, not `hidden`).
+- **Other pages**: the orb floats bottom-right. Click it or press ⌘K / Ctrl+K and a dark sheet rises over a dimmed, blurred page. Esc closes it and focus returns to the orb. The greeting, hint and nudge cards still pop out of the orb.
+- **Voice**: if the shopper speaks, 小織 answers aloud (speechSynthesis). The speaker toggle makes her always read replies aloud. Both are free browser APIs.
+- One conversation is shared site-wide through `XiaozhiProvider` (layout).
