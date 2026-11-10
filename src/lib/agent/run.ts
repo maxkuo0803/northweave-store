@@ -146,26 +146,57 @@ export async function respond(conversationId: string, opts: RespondOptions = {})
   await log.add(after.status === "WAITING_HUMAN" ? "HANDOFF" : "REPLY", after.status === "WAITING_HUMAN" ? "AI 轉人工" : "送出回覆", {
     output: { text: checked.text, outputIssues: checked.issues.length ? checked.issues : undefined, channel: conv.channel },
   });
-  const attachments = buildAttachments(checked.text, ctx.effects);
+  const attachments = await buildAttachments(checked.text, ctx.effects, conv.channel);
   if (attachments) await log.add("REPLY", "附件", { output: attachments });
   return saveAndDeliver(conversationId, "AI", checked.text, { ...opts, attachments });
 }
 
-// 回覆的附件（網站聊天視窗用）：回覆裡提到的商品 → 商品卡片；工具要求的按鈕；要不要重新整理頁面
-function buildAttachments(text: string, fx: ReplyEffects) {
-  // 依照商品在回覆裡出現的順序排（用編號或商品名稱比對），最多 6 張
-  const mentioned = [...fx.products.values()]
+// 回覆的附件：
+// - products：回覆提到的商品（+ 要顯示選擇器的商品）→ 商品卡片，每張附上顏色尺寸，卡片上就能直接選規格加入購物車
+// - choices：選項按鈕（LINE 會變成快速回覆）
+// - links：連結按鈕；refresh：網頁要重新整理
+const SIZE_ORDER = ["XS", "S", "M", "L", "XL", "F"];
+async function buildAttachments(text: string, fx: ReplyEffects, channel: string) {
+  const all = [...fx.products.values()];
+  const picked = all.filter((p) => fx.pickers.has(p.code));
+  // 回覆提到的商品，依出現順序排（用編號或商品名稱比對）
+  const mentioned = all
+    .filter((p) => !fx.pickers.has(p.code))
     .map((p) => {
       const i = [text.indexOf(p.code), text.indexOf(p.name)].filter((x) => x >= 0);
       return { p, at: i.length ? Math.min(...i) : -1 };
     })
     .filter((x) => x.at >= 0)
     .sort((a, b) => a.at - b.at)
-    .slice(0, 6)
-    .map((x) => ({ ...x.p, url: new URL(x.p.url).pathname }));
+    .map((x) => x.p);
+  const cards = [...picked, ...mentioned].slice(0, 6);
+
+  let products: object[] = [];
+  if (cards.length && channel === "WEB") {
+    // 一次查出這幾件商品的所有規格（顏色、色碼、尺寸、有沒有貨）
+    const rows = await prisma.product.findMany({
+      where: { OR: cards.map((c) => ({ slug: { startsWith: c.code.toLowerCase() + "-" } })) },
+      select: { slug: true, variants: { select: { id: true, color: true, colorHex: true, size: true, stock: true } } },
+    });
+    const byCode = new Map(rows.map((r) => [r.slug.split("-")[0].toUpperCase(), r.variants]));
+    products = cards.map((c) => ({
+      ...c,
+      url: new URL(c.url).pathname,
+      pick: fx.pickers.has(c.code), // true = 一出現就展開選擇器
+      variants: (byCode.get(c.code) ?? [])
+        .sort((a, b) => SIZE_ORDER.indexOf(a.size) - SIZE_ORDER.indexOf(b.size))
+        .map((v) => ({ id: v.id, color: v.color, hex: v.colorHex, size: v.size, soldOut: v.stock <= 0 })),
+    }));
+  }
   const links = [...new Map(fx.links.map((l) => [l.href, l])).values()].slice(0, 3);
-  if (!mentioned.length && !links.length && !fx.refresh) return null;
-  return { ...(mentioned.length && { products: mentioned }), ...(links.length && { links }), ...(fx.refresh && { refresh: true }) };
+  const choices = fx.choices.slice(0, 6);
+  if (!products.length && !links.length && !choices.length && !fx.refresh) return null;
+  return {
+    ...(products.length && { products }),
+    ...(choices.length && { choices }),
+    ...(links.length && { links }),
+    ...(fx.refresh && { refresh: true }),
+  };
 }
 
 async function handoffNow(conversationId: string, log: StepLog, reason: string, opts: DeliverOptions) {

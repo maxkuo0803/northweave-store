@@ -49,6 +49,9 @@ async function cartSummary(userId: string) {
   };
 }
 
+// 地址的固定順序：預設地址第一，其餘照 id 排。list_addresses 和 propose_order 都用這個，「地址 N」才會對得上
+const savedAddresses = (userId: string) => prisma.address.findMany({ where: { userId }, orderBy: [{ isDefault: "desc" }, { id: "asc" }] });
+
 const OPEN_PAGES = {
   cart: { label: "前往購物車", href: "/cart" },
   checkout: { label: "前往結帳", href: "/checkout" },
@@ -84,10 +87,14 @@ export const SHOP_TOOLS = {
       if (!p) return { ok: false, error: "找不到這個商品" };
       const matches = p.variants.filter((v) => (!i.color || v.color === i.color.trim()) && (!i.size || v.size.toUpperCase() === i.size.trim().toUpperCase()));
       if (matches.length !== 1) {
+        // 不知道顏色尺寸：直接在聊天視窗放選擇器讓顧客點，不要用文字列一長串選項
+        ctx.effects.products.set(productBrief(p).code, productBrief(p));
+        ctx.effects.pickers.add(productBrief(p).code);
         return {
           ok: false,
-          error: matches.length === 0 ? "沒有這個顏色 / 尺寸" : "請先確認顏色和尺寸",
-          options: p.variants.filter((v) => v.stock > 0).map((v) => `${v.color} / ${v.size}`),
+          error: matches.length === 0 ? "沒有這個顏色 / 尺寸" : "還不知道顏色和尺寸",
+          next: ctx.channel === "WEB" ? "聊天視窗已顯示顏色尺寸選擇器，只要回一句「請選顏色和尺寸」即可，不要列出選項。" : "請簡短詢問顏色和尺寸。",
+          ...(ctx.channel !== "WEB" && { options: p.variants.filter((v) => v.stock > 0).map((v) => `${v.color} / ${v.size}`) }),
         };
       }
       const r = await addToCart(ctx.userId!, matches[0].id, i.quantity);
@@ -107,6 +114,41 @@ export const SHOP_TOOLS = {
       const r = await setCartQuantity(ctx.userId!, i.cartItemId, i.quantity);
       if (r.ok) ctx.effects.refresh = true;
       return { ...r, cart: await cartSummary(ctx.userId!) };
+    },
+  },
+
+  show_variant_picker: {
+    description:
+      "在網站聊天視窗顯示商品的「顏色 / 尺寸選擇器」（色塊 + 尺寸按鈕 + 加入購物車），顧客點選就直接加入購物車。顧客想買、想加入購物車、問有什麼顏色尺寸時使用，取代用文字列出顏色尺寸。最多 4 件。",
+    schema: z.object({ codes: z.array(code).min(1).max(4) }),
+    run: async (i: { codes: string[] }, ctx: AgentContext) => {
+      const found: string[] = [];
+      for (const c of i.codes) {
+        const p = await findProduct(c);
+        if (!p) continue;
+        const b = productBrief(p);
+        ctx.effects.products.set(b.code, b);
+        ctx.effects.pickers.add(b.code);
+        found.push(`${b.code} ${b.name}`);
+      }
+      if (!found.length) return { ok: false, error: "找不到這些商品" };
+      if (ctx.channel !== "WEB") return { ok: false, error: "這個平台不支援選擇器，請簡短詢問顏色和尺寸" };
+      return { ok: true, shown: found, next: "選擇器已顯示。回覆一句「請選顏色和尺寸」就好，不要列出選項。" };
+    },
+  },
+
+  offer_choices: {
+    description:
+      "在聊天視窗顯示選項按鈕（LINE 會變成快速回覆按鈕），顧客按下去就等於傳出那句話。要顧客做選擇時一定用這個，不要在文字裡列選項。例如付款方式、宅配或超商、選哪個地址、要不要一起結帳。",
+    schema: z.object({
+      options: z
+        .array(z.object({ label: z.string().max(20).describe("按鈕上的字，越短越好"), reply: z.string().max(60).describe("按下後代替顧客傳出的話") }))
+        .min(2)
+        .max(6),
+    }),
+    run: async (i: { options: { label: string; reply: string }[] }, ctx: AgentContext) => {
+      ctx.effects.choices = i.options;
+      return { ok: true, next: "按鈕已顯示。文字只要一句問題，不要再列出選項。" };
     },
   },
 
@@ -151,19 +193,26 @@ export const SHOP_TOOLS = {
   },
 
   list_addresses: {
-    description: "列出顧客儲存的收件地址（含 addressId），下單或管理地址前使用。",
+    description:
+      "列出顧客儲存的收件地址（地址 1、地址 2…，預設地址排第一），並自動在聊天視窗放上選地址的按鈕。顧客回「寄到地址 N」時，propose_order 用 addressNo=N。",
     needsUser: true,
     schema: z.object({}),
     run: async (_: object, ctx: AgentContext) => {
-      const list = await prisma.address.findMany({ where: { userId: ctx.userId! }, orderBy: [{ isDefault: "desc" }, { id: "asc" }] });
+      const list = await savedAddresses(ctx.userId!);
+      if (list.length) {
+        // 按鈕：按下去等於傳出「寄到地址 N（地區）」，下一輪 AI 用編號就能找到地址
+        ctx.effects.choices = list.map((a, i) => ({ label: `${a.city}${a.district}${a.isDefault ? "（預設）" : ""}`, reply: `寄到地址 ${i + 1}（${a.city}${a.district}）` }));
+      }
       return {
-        addresses: list.map((a) => ({
+        addresses: list.map((a, i) => ({
+          addressNo: i + 1,
           addressId: a.id,
           isDefault: a.isDefault,
           // 地址本來就是顧客自己的，但還是部分遮罩：讓顧客認得出是哪一筆就好
           recipient: `${maskName(a.recipientName)} ${maskPhone(a.phone)}`,
           address: `${a.city}${a.district}${a.line.slice(0, 4)}…`,
         })),
+        next: list.length ? "選地址的按鈕已顯示，文字只要一句「請選收件地址」。" : "沒有儲存的地址：請顧客到會員中心新增（open_page addresses），或改用超商取貨。",
       };
     },
   },
@@ -197,12 +246,13 @@ export const SHOP_TOOLS = {
   // ── 以下要顧客確認 ──
   propose_order: {
     description:
-      "幫顧客用「目前購物車的內容」下單（還不會送出）。宅配要用 list_addresses 的 addressId；超商取貨要門市名稱、取件人姓名與手機。付款方式：CREDIT_CARD / LINE_PAY（作品集為模擬付款，送出即視為付款成功，絕對不要向顧客要卡號）、ATM、COD（貨到付款）。",
+      "幫顧客用「目前購物車的內容」下單（還不會送出）。宅配用顧客選的地址編號（addressNo，來自 list_addresses）；超商取貨要門市名稱、取件人姓名與手機。付款方式：CREDIT_CARD / LINE_PAY（作品集為模擬付款，送出即視為付款成功，絕對不要向顧客要卡號）、ATM、COD（貨到付款）。",
     needsUser: true,
     schema: z.object({
       shippingMethod: z.enum(["HOME", "CVS"]),
       paymentMethod: z.enum(["CREDIT_CARD", "LINE_PAY", "ATM", "COD"]),
       addressId: z.string().max(40).optional(),
+      addressNo: z.number().int().min(1).max(10).optional().describe("顧客選的「地址 N」的 N（list_addresses 的 addressNo）"),
       cvsStore: z.string().max(40).optional().describe("超商門市名稱，例如「市府門市」"),
       cvsName: z.string().max(40).optional(),
       cvsPhone: z.string().max(10).optional(),
@@ -210,7 +260,7 @@ export const SHOP_TOOLS = {
       note: z.string().max(200).optional(),
     }),
     run: async (
-      i: { shippingMethod: ShippingMethod; paymentMethod: PaymentMethod; addressId?: string; cvsStore?: string; cvsName?: string; cvsPhone?: string; couponCode?: string; note?: string },
+      i: { shippingMethod: ShippingMethod; paymentMethod: PaymentMethod; addressId?: string; addressNo?: number; cvsStore?: string; cvsName?: string; cvsPhone?: string; couponCode?: string; note?: string },
       ctx: AgentContext,
     ) => {
       const uid = ctx.userId!;
@@ -220,9 +270,8 @@ export const SHOP_TOOLS = {
         if (!/^09\d{8}$/.test(i.cvsPhone)) return { ok: false, error: "取件人手機格式為 09 開頭共 10 碼" };
         recipient = { name: i.cvsName.trim(), phone: i.cvsPhone, address: `7-ELEVEN ${i.cvsStore.trim()}` };
       } else {
-        const a = i.addressId
-          ? await prisma.address.findFirst({ where: { id: i.addressId, userId: uid } })
-          : await prisma.address.findFirst({ where: { userId: uid, isDefault: true } });
+        const list = await savedAddresses(uid);
+        const a = i.addressNo ? list[i.addressNo - 1] : i.addressId ? list.find((x) => x.id === i.addressId) : list.find((x) => x.isDefault) ?? list[0];
         if (!a) return { ok: false, error: "沒有收件地址，請先用 list_addresses 確認，或請顧客提供地址（propose_add_address）" };
         recipient = { name: a.recipientName, phone: a.phone, address: `${a.zipCode} ${a.city}${a.district}${a.line}` };
       }

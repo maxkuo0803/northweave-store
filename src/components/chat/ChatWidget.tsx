@@ -11,8 +11,11 @@ import { BotAvatar } from "./BotAvatar";
 // - 沒打開時，在商品頁 / 購物車停留一段時間，會跳出推薦泡泡（規則計算，不花 AI 費用）
 
 // AI 回覆可以附帶：商品卡片、按鈕（例如「前往結帳」）、要不要重新整理頁面（購物車有變動）
-type Card = { code: string; name: string; price: number; originalPrice?: number; onSale?: boolean; url: string; image: string };
-type Attachments = { products?: Card[]; links?: { label: string; href: string }[]; refresh?: boolean };
+type Variant = { id: string; color: string; hex: string; size: string; soldOut: boolean };
+type Card = { code: string; name: string; price: number; originalPrice?: number; onSale?: boolean; url: string; image: string; pick?: boolean; variants?: Variant[] };
+type Choice = { label: string; reply: string };
+type Attachments = { products?: Card[]; choices?: Choice[]; links?: { label: string; href: string }[]; refresh?: boolean };
+const CART_NOTE = "（已用按鈕加入購物車）";
 type Msg = { id: string; role: "CUSTOMER" | "AI" | "STAFF" | "SYSTEM"; content: string; attachments?: Attachments | null; createdAt: string };
 type NudgeProduct = { slug: string; code: string; name: string; price: number; onSale: boolean; image: string };
 type Nudge = { message: string; products: NudgeProduct[] };
@@ -126,6 +129,12 @@ export function ChatWidget({ siteOrigin }: { siteOrigin: string }) {
     }
   }
 
+  // 選擇器直接加入購物車後：把「已加入」紀錄顯示在對話裡，並更新右上角購物車數量
+  const onAdded = useCallback((note: Msg) => {
+    merge([note]);
+    router.refresh();
+  }, [merge, router]);
+
   if (pathname.startsWith("/admin")) return null;
 
   return (
@@ -171,7 +180,9 @@ export function ChatWidget({ siteOrigin }: { siteOrigin: string }) {
                 </div>
               </div>
             )}
-            {messages.map((m) => <Bubble key={m.id} m={m} siteOrigin={siteOrigin} onAsk={send} busy={sending} />)}
+            {messages.map((m, i) => (
+              <Bubble key={m.id} m={m} siteOrigin={siteOrigin} onAsk={send} busy={sending} isLatest={i === messages.length - 1} onAdded={onAdded} />
+            ))}
             {sending && (
               <div className="flex items-center gap-2" role="status">
                 <BotAvatar className="h-8 w-8" thinking />
@@ -230,19 +241,48 @@ export function ChatWidget({ siteOrigin }: { siteOrigin: string }) {
   );
 }
 
-function Bubble({ m, siteOrigin, onAsk, busy }: { m: Msg; siteOrigin: string; onAsk: (text: string) => void; busy: boolean }) {
+type BubbleProps = { m: Msg; siteOrigin: string; onAsk: (text: string) => void; busy: boolean; isLatest: boolean; onAdded: (note: Msg) => void };
+
+function Bubble({ m, siteOrigin, onAsk, busy, isLatest, onAdded }: BubbleProps) {
   if (m.role === "SYSTEM") return <p className="text-center text-xs font-bold text-muted">{m.content}</p>;
+  // 用選擇器加入購物車的紀錄：小小一行，不佔版面
+  if (m.role === "CUSTOMER" && m.content.startsWith(CART_NOTE)) {
+    return (
+      <p className="flex items-center justify-end gap-1 text-xs font-bold text-ok">
+        <CheckIcon className="h-3.5 w-3.5" />
+        已加入購物車：{m.content.slice(CART_NOTE.length)}
+      </p>
+    );
+  }
   const mine = m.role === "CUSTOMER";
   if (m.role === "AI") {
     const a = m.attachments;
     return (
       <div className="flex items-start gap-2">
         <BotAvatar className="mt-0.5 h-8 w-8" />
-        <div className="min-w-0 max-w-[85%] space-y-2">
-          <div className="rounded-2xl rounded-tl-md bg-card px-3.5 py-2.5 text-sm leading-relaxed break-words whitespace-pre-wrap text-ink shadow-sm">
+        <div className="min-w-0 max-w-[85%] flex-1 space-y-2">
+          <div className="w-fit rounded-2xl rounded-tl-md bg-card px-3.5 py-2.5 text-sm leading-relaxed break-words whitespace-pre-wrap text-ink shadow-sm">
             <Linkify text={m.content} siteOrigin={siteOrigin} />
           </div>
-          {a?.products && a.products.length > 0 && <ProductCards products={a.products} onAsk={onAsk} busy={busy} />}
+          {a?.products && a.products.length > 0 && <ProductCards products={a.products} onAdded={onAdded} />}
+          {/* 選項按鈕：只在最新一則顯示，避免顧客按到舊的選項 */}
+          {isLatest && a?.choices && a.choices.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {a.choices.map((c, i) => (
+                <button
+                  key={c.label}
+                  onClick={() => onAsk(c.reply)}
+                  disabled={busy}
+                  className={cn(
+                    "rounded-full px-3.5 py-1.5 text-sm font-bold transition-colors disabled:opacity-50",
+                    i === 0 ? "bg-ink text-white hover:bg-black" : "border border-ink/30 bg-card hover:border-ink",
+                  )}
+                >
+                  {c.label}
+                </button>
+              ))}
+            </div>
+          )}
           {a?.links && a.links.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {a.links.map((l) => (
@@ -272,37 +312,163 @@ function Bubble({ m, siteOrigin, onAsk, busy }: { m: Msg; siteOrigin: string; on
   );
 }
 
-// 商品卡片：可以橫向滑動；「加入購物車」會請小織接手（小織會問顏色、尺寸）
-function ProductCards({ products, onAsk, busy }: { products: Card[]; onAsk: (text: string) => void; busy: boolean }) {
+// 商品卡片：
+// - 一般：小卡片橫向滑動，按「加入購物車」就在卡片上展開顏色 / 尺寸選擇器（不用再問 AI）
+// - pick = true（AI 要顧客選規格）：一出現就是展開的選擇器
+function ProductCards({ products, onAdded }: { products: Card[]; onAdded: (note: Msg) => void }) {
+  const [openCodes, setOpenCodes] = useState(() => new Set(products.filter((p) => p.pick).map((p) => p.code)));
+  const open = products.filter((p) => openCodes.has(p.code) && p.variants?.length);
+  const rest = products.filter((p) => !open.includes(p));
+  const toggle = (code: string, on: boolean) =>
+    setOpenCodes((s) => {
+      const n = new Set(s);
+      if (on) n.add(code);
+      else n.delete(code);
+      return n;
+    });
   return (
-    <ul className="-mr-3 flex snap-x gap-2 overflow-x-auto pr-3 pb-1" aria-label="推薦商品">
-      {products.map((p) => (
-        <li key={p.code} className="w-36 shrink-0 snap-start overflow-hidden rounded-2xl bg-card shadow-sm">
-          <Link href={p.url} className="group block">
-            <div className="relative bg-sand/70 px-3 pt-3 pb-1">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={p.image} alt={p.name} loading="lazy" className="mx-auto h-24 w-24 object-contain drop-shadow transition-transform duration-300 group-hover:-translate-y-0.5" />
-              {p.onSale && <span className="absolute top-2 left-2 rounded-full bg-neon px-1.5 text-[10px] font-black">特價</span>}
-            </div>
-            <div className="px-2.5 pt-1.5">
-              <p className="font-marker text-[10px] text-muted">{p.code}</p>
-              <p className="line-clamp-2 min-h-[2.5em] text-xs leading-tight font-bold group-hover:underline">{p.name}</p>
-              <p className="mt-0.5 flex items-baseline gap-1">
-                <span className="font-marker text-base">{p.price.toLocaleString()}</span>
-                {p.originalPrice && <span className="text-[10px] text-muted line-through">{p.originalPrice.toLocaleString()}</span>}
-              </p>
-            </div>
-          </Link>
-          <button
-            onClick={() => onAsk(`幫我把 ${p.code} ${p.name} 加入購物車`)}
-            disabled={busy}
-            className="m-2.5 mt-1.5 w-[calc(100%-1.25rem)] rounded-full border border-ink/25 py-1 text-[11px] font-bold hover:border-ink disabled:opacity-50"
-          >
-            加入購物車
-          </button>
-        </li>
+    <div className="space-y-2">
+      {open.map((p) => (
+        <VariantPicker key={p.code} p={p} onAdded={onAdded} onClose={() => toggle(p.code, false)} />
       ))}
-    </ul>
+      {rest.length > 0 && (
+        <ul className="-mr-3 flex snap-x gap-2 overflow-x-auto pr-3 pb-1" aria-label="推薦商品">
+          {rest.map((p) => (
+            <li key={p.code} className="w-36 shrink-0 snap-start overflow-hidden rounded-2xl bg-card shadow-sm">
+              <Link href={p.url} className="group block">
+                <div className="relative bg-sand/70 px-3 pt-3 pb-1">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={p.image} alt={p.name} loading="lazy" className="mx-auto h-24 w-24 object-contain drop-shadow transition-transform duration-300 group-hover:-translate-y-0.5" />
+                  {p.onSale && <span className="absolute top-2 left-2 rounded-full bg-neon px-1.5 text-[10px] font-black">特價</span>}
+                </div>
+                <div className="px-2.5 pt-1.5">
+                  <p className="font-marker text-[10px] text-muted">{p.code}</p>
+                  <p className="line-clamp-2 min-h-[2.5em] text-xs leading-tight font-bold group-hover:underline">{p.name}</p>
+                  <Price p={p} />
+                </div>
+              </Link>
+              {p.variants?.length ? (
+                <button onClick={() => toggle(p.code, true)} className="m-2.5 mt-1.5 w-[calc(100%-1.25rem)] rounded-full border border-ink/25 py-1 text-[11px] font-bold hover:border-ink">
+                  加入購物車
+                </button>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function Price({ p }: { p: Card }) {
+  return (
+    <p className="mt-0.5 flex items-baseline gap-1">
+      <span className="font-marker text-base">{p.price.toLocaleString()}</span>
+      {p.originalPrice && <span className="text-[10px] text-muted line-through">{p.originalPrice.toLocaleString()}</span>}
+    </p>
+  );
+}
+
+// 顏色 / 尺寸選擇器：選色塊 → 選尺寸 → 加入購物車（售完的尺寸是灰色、畫刪除線，不能選）
+function VariantPicker({ p, onAdded, onClose }: { p: Card; onAdded: (note: Msg) => void; onClose: () => void }) {
+  const variants = p.variants ?? [];
+  const colors = [...new Map(variants.map((v) => [v.color, v.hex])).entries()];
+  const colorSoldOut = (c: string) => variants.filter((v) => v.color === c).every((v) => v.soldOut);
+  const [color, setColor] = useState(() => colors.find(([c]) => !colorSoldOut(c))?.[0] ?? null);
+  const sizes = variants.filter((v) => v.color === color);
+  const [size, setSize] = useState<string | null>(() => {
+    const avail = variants.filter((v) => v.color === color && !v.soldOut);
+    return avail.length === 1 ? avail[0].size : null; // 只有一個尺寸（例如配件 F）就自動選好
+  });
+  const [state, setState] = useState<{ busy?: boolean; done?: string; error?: string; login?: boolean }>({});
+  const chosen = variants.find((v) => v.color === color && v.size === size && !v.soldOut);
+
+  async function add() {
+    if (!chosen) return;
+    setState({ busy: true });
+    const res = await fetch("/api/chat/cart", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ variantId: chosen.id, quantity: 1 }) }).catch(() => null);
+    const data = res ? await res.json().catch(() => ({})) : {};
+    if (!res?.ok) return setState({ error: data.error ?? "加入失敗，請再試一次", login: !!data.login });
+    setState({ done: `${chosen.color} / ${chosen.size}` });
+    onAdded({ ...data.note, attachments: null });
+  }
+
+  return (
+    <div className="flex gap-3 rounded-2xl bg-card p-3 shadow-sm">
+      <Link href={p.url} className="shrink-0 rounded-xl bg-sand/70 p-1.5" aria-label={`查看 ${p.name}`}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={p.image} alt="" className="h-20 w-20 object-contain drop-shadow" />
+      </Link>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start justify-between gap-1">
+          <div className="min-w-0">
+            <p className="font-marker text-[10px] text-muted">{p.code}</p>
+            <p className="truncate text-sm leading-tight font-bold">{p.name}</p>
+          </div>
+          <button onClick={onClose} aria-label="收起選擇器" className="-mt-1 -mr-1 shrink-0 rounded-full p-1 text-muted hover:bg-ink/5 hover:text-ink">
+            <CloseIcon className="h-3.5 w-3.5" />
+          </button>
+        </div>
+        <Price p={p} />
+
+        <div className="mt-2 flex flex-wrap gap-1.5" role="radiogroup" aria-label="顏色">
+          {colors.map(([c, hex]) => (
+            <button
+              key={c}
+              role="radio"
+              aria-checked={color === c}
+              aria-label={`${c}${colorSoldOut(c) ? "（售完）" : ""}`}
+              title={c}
+              disabled={colorSoldOut(c)}
+              onClick={() => { setColor(c); setSize(null); setState({}); }}
+              className={cn("h-6 w-6 rounded-full border border-black/15 ring-offset-2 ring-offset-card disabled:opacity-30", color === c && "ring-2 ring-ink")}
+              style={{ backgroundColor: hex }}
+            />
+          ))}
+          {color && <span className="self-center text-xs text-muted">{color}</span>}
+        </div>
+
+        <div className="mt-2 flex flex-wrap gap-1" role="radiogroup" aria-label="尺寸">
+          {sizes.map((v) => (
+            <button
+              key={v.id}
+              role="radio"
+              aria-checked={size === v.size}
+              disabled={v.soldOut}
+              onClick={() => { setSize(v.size); setState({}); }}
+              className={cn(
+                "min-w-9 rounded-full border px-2 py-0.5 text-xs font-bold",
+                size === v.size ? "border-ink bg-ink text-white" : "border-ink/25 hover:border-ink",
+                v.soldOut && "cursor-not-allowed border-line text-muted line-through",
+              )}
+            >
+              {v.size}
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+          <button onClick={add} disabled={!chosen || state.busy} className="shrink-0 rounded-full bg-ink px-3.5 py-1.5 text-xs font-bold whitespace-nowrap text-white hover:bg-black disabled:opacity-40">
+            {state.busy ? "加入中…" : chosen ? "加入購物車" : "請選顏色和尺寸"}
+          </button>
+          {state.done && <span className="text-xs font-bold text-ok">已加入 {state.done}</span>}
+          {state.error && (
+            <span className="text-xs font-bold text-bad">
+              {state.error}
+              {state.login && <> ・<Link href={`/login?next=${encodeURIComponent(p.url)}`} className="underline">登入</Link></>}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CheckIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" className={className} fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M3 8.5l3 3 7-7" />
+    </svg>
   );
 }
 

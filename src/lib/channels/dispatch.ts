@@ -32,15 +32,16 @@ export async function saveAndDeliver(
       case "LINE": {
         if (!lineConfigured()) throw new Error("LINE 尚未設定（LINE_CHANNEL_SECRET / LINE_CHANNEL_ACCESS_TOKEN）");
         // reply token 只能用一次、約 1 分鐘內有效；用不了就改用 push
+        const choices = (opts.attachments as { choices?: { label: string; reply: string }[] } | null | undefined)?.choices;
         if (opts.lineReplyToken) {
           try {
-            await lineReply(opts.lineReplyToken, text);
+            await lineReply(opts.lineReplyToken, text, choices);
             break;
           } catch {
             /* token 過期 → 改用 push */
           }
         }
-        await linePush(conv.externalId, text);
+        await linePush(conv.externalId, text, choices);
         break;
       }
       case "EMAIL": {

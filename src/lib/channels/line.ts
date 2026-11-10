@@ -28,11 +28,22 @@ async function lineApi(path: string, body?: object) {
   return res.status === 200 ? res.json().catch(() => ({})) : {};
 }
 
-// LINE 單則訊息上限 5000 字
-const toMessages = (text: string) => [{ type: "text", text: text.slice(0, 4900) }];
+// 選項按鈕 → LINE 的「快速回覆」（訊息下方一排按鈕，按下去就幫顧客傳出那句話）
+export type QuickChoice = { label: string; reply: string };
 
-export const lineReply = (replyToken: string, text: string) => lineApi("message/reply", { replyToken, messages: toMessages(text) });
-export const linePush = (to: string, text: string) => lineApi("message/push", { to, messages: toMessages(text) });
+// LINE 單則訊息上限 5000 字；快速回覆最多 13 個、按鈕字最多 20 字
+const toMessages = (text: string, choices?: QuickChoice[]) => [
+  {
+    type: "text",
+    text: text.slice(0, 4900),
+    ...(choices?.length && {
+      quickReply: { items: choices.slice(0, 13).map((c) => ({ type: "action", action: { type: "message", label: c.label.slice(0, 20), text: c.reply.slice(0, 300) } })) },
+    }),
+  },
+];
+
+export const lineReply = (replyToken: string, text: string, choices?: QuickChoice[]) => lineApi("message/reply", { replyToken, messages: toMessages(text, choices) });
+export const linePush = (to: string, text: string, choices?: QuickChoice[]) => lineApi("message/push", { to, messages: toMessages(text, choices) });
 
 export async function lineProfileName(userId: string): Promise<string | null> {
   try {

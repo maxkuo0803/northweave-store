@@ -39,11 +39,16 @@ const ACTION_LABEL: Record<PendingAction["kind"], string> = {
 export async function stagePending(ctx: AgentContext, action: PendingAction, summary: string) {
   const stored: Stored = { ...action, summary, createdAt: new Date().toISOString() };
   await prisma.conversation.update({ where: { id: ctx.conversationId }, data: { pendingAction: stored as unknown as Prisma.InputJsonValue } });
+  // 顧客直接按按鈕確認，不用打字
+  ctx.effects.choices = [
+    { label: `確認${ACTION_LABEL[action.kind]}`, reply: "確認" },
+    { label: "先不要", reply: "先不要" },
+  ];
   return {
     ok: true,
     staged: ACTION_LABEL[action.kind],
     summary,
-    next: `已暫存「${ACTION_LABEL[action.kind]}」，還沒執行。請把 summary 的內容條列告訴顧客，並請顧客回覆「確認」；顧客確認後再呼叫 confirm_pending_action。`,
+    next: `已暫存「${ACTION_LABEL[action.kind]}」，還沒執行。把 summary 原樣條列給顧客，最後一句只寫「請確認」（聊天視窗已有確認按鈕）。顧客確認後再呼叫 confirm_pending_action。`,
   };
 }
 

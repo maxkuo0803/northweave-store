@@ -6,12 +6,15 @@ import type { Channel } from "@/generated/prisma/enums";
 
 // 這次回覆「附帶」給顧客的東西（只有網站聊天視窗會顯示成卡片 / 按鈕）
 export type ProductCard = { code: string; name: string; price: number; originalPrice?: number; onSale?: boolean; url: string; image: string };
+export type Choice = { label: string; reply: string }; // 按下去等於顧客傳出 reply 這句話
 export type ReplyEffects = {
   products: Map<string, ProductCard>; // 工具查到的商品（key = 商品編號），回覆提到哪幾件就附上哪幾件的卡片
-  links: { label: string; href: string }[]; // 按鈕，例如「前往結帳」
+  pickers: Set<string>; // 要顯示「顏色 / 尺寸選擇器」的商品編號（一定會附上卡片並展開選擇器）
+  choices: Choice[]; // 選項按鈕（付款方式、配送方式、確認 / 先不要…）
+  links: { label: string; href: string }[]; // 連結按鈕，例如「前往結帳」
   refresh: boolean; // 購物車、訂單有變動 → 網頁要重新整理（例如右上角購物車數量）
 };
-export const newEffects = (): ReplyEffects => ({ products: new Map(), links: [], refresh: false });
+export const newEffects = (): ReplyEffects => ({ products: new Map(), pickers: new Set(), choices: [], links: [], refresh: false });
 
 export type AgentContext = {
   conversationId: string;
