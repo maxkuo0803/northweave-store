@@ -35,7 +35,7 @@ export default async function NewReturnPage({ searchParams }: PageProps<"/accoun
   return (
     <div>
       <Link href={`/account/orders/${orderNumber}`} className="text-sm text-muted">← 訂單 {orderNumber}</Link>
-      <h1 className="mt-2 text-2xl font-bold">申請退換貨</h1>
+      <h1 className="display mt-2 text-3xl md:text-4xl">申請退換貨</h1>
       <p className="mt-1 text-sm text-muted">鑑賞期至 {formatDate(eligible.deadline)}。商品需保持全新、吊牌未剪、未下水洗滌。</p>
       <ReturnForm
         orderNumber={orderNumber}

@@ -17,7 +17,7 @@ export default async function WishlistPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold">我的收藏</h1>
+      <h1 className="display text-3xl md:text-4xl">我的收藏</h1>
       {items.length === 0 && <p className="mt-6 text-muted">還沒有收藏的商品。</p>}
       <div className="mt-6 grid grid-cols-2 gap-x-4 gap-y-8 lg:grid-cols-3">
         {items.map((w) => (

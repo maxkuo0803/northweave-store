@@ -13,21 +13,21 @@ export default async function RegisterPage({ searchParams }: PageProps<"/registe
   if (await getSession()) redirect(nextPath);
 
   return (
-    <div className="pegboard px-4 py-14">
-      <div className="mx-auto grid max-w-3xl items-start gap-8 md:grid-cols-[1fr_260px]">
-        <div className="card p-7">
-          <h1 className="text-2xl font-black">註冊會員</h1>
-          <p className="mt-1 text-sm text-muted">
-            已經有帳號了？<Link href={`/login?next=${encodeURIComponent(nextPath)}`} className="font-bold text-ink underline decoration-2">登入</Link>
+    <div className="pegboard px-4 py-16 md:py-24">
+      <div className="mx-auto grid max-w-4xl items-start gap-6 md:grid-cols-[1fr_280px]">
+        <div className="card p-8 md:p-10">
+          <h1 className="display text-4xl">註冊會員</h1>
+          <p className="mt-2 text-sm text-muted">
+            已經有帳號了？<Link href={`/login?next=${encodeURIComponent(nextPath)}`} className="font-bold text-ink underline underline-offset-4">登入</Link>
           </p>
-          <div className="mt-6">
+          <div className="mt-8">
             <RegisterForm next={nextPath} />
           </div>
         </div>
-        <div className="kraft-tag -rotate-2 p-5 text-sm">
-          <p className="text-lg font-black">新會員優惠</p>
-          <p className="mt-2 font-marker text-2xl">WELCOME100</p>
-          <p className="mt-2">首購滿 NT$800 折 NT$100，結帳時輸入。</p>
+        <div className="kraft-tag p-6 text-sm">
+          <p className="display text-xl">新會員優惠</p>
+          <p className="mt-3 rounded-sm border border-dashed border-ink/40 px-3 py-2 text-center font-mono text-xl font-semibold tracking-wider">WELCOME100</p>
+          <p className="mt-3">首購滿 NT$800 折 NT$100，結帳時輸入。</p>
         </div>
       </div>
     </div>

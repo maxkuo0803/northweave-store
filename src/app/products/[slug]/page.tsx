@@ -37,66 +37,83 @@ export default async function ProductPage({ params }: PageProps<"/products/[slug
     <div>
       {/* 記錄瀏覽紀錄，給推薦用 */}
       <TrackView productId={product.id} />
-      <section className="pegboard pt-8 pb-16">
-        <div className="mx-auto max-w-6xl px-4">
-          <nav aria-label="麵包屑" className="mb-8 inline-flex flex-wrap gap-1 rounded-full bg-card/90 px-4 py-1.5 text-sm shadow-sm">
-            <Link href="/products" className="hover:underline">全部商品</Link>
-            {product.category.parent && <>/<Link href={`/products?category=${product.category.parent.slug}`} className="hover:underline">{product.category.parent.name}</Link></>}
-            /<Link href={`/products?category=${product.category.slug}`} className="font-bold hover:underline">{product.category.name}</Link>
-          </nav>
+      <section className="container-x pt-8 md:pt-10">
+        <nav aria-label="麵包屑" className="mb-8 flex flex-wrap items-center gap-2 text-sm text-muted">
+          <Link href="/products" className="hover:text-ink">全部商品</Link>
+          {product.category.parent && (
+            <>
+              <span aria-hidden>/</span>
+              <Link href={`/products?category=${product.category.parent.slug}`} className="hover:text-ink">{product.category.parent.name}</Link>
+            </>
+          )}
+          <span aria-hidden>/</span>
+          <Link href={`/products?category=${product.category.slug}`} className="font-bold text-ink">{product.category.name}</Link>
+        </nav>
 
-          <VariantPicker
-            variants={product.variants}
-            images={product.images}
-            returnTo={path}
-            code={productCode(product.slug)}
-            name={product.name}
-            price={product.price}
-            salePrice={product.salePrice}
-            footer={
-              <form action={toggleWishlistAction} className="border-t border-line pt-4">
-                <input type="hidden" name="productId" value={product.id} />
-                <input type="hidden" name="returnTo" value={path} />
-                <button className="text-sm font-bold underline decoration-2 hover:no-underline">{wished ? "已收藏，點一下取消" : "加入收藏，補貨或降價時比較好找"}</button>
-              </form>
-            }
-          >
-            <div>
-              <h1 className="text-3xl leading-tight font-black">{product.name}</h1>
-              {n > 0 && (
-                <a href="#reviews" className="mt-2 inline-block text-sm font-bold underline decoration-2">
-                  {n} 則評論，平均 {avg.toFixed(1)} 分
-                </a>
-              )}
-              <p className="mt-4 text-[15px] leading-relaxed">{product.description}</p>
-            </div>
-          </VariantPicker>
-        </div>
+        <VariantPicker
+          variants={product.variants}
+          images={product.images}
+          returnTo={path}
+          code={productCode(product.slug)}
+          name={product.name}
+          price={product.price}
+          salePrice={product.salePrice}
+          footer={
+            <form action={toggleWishlistAction} className="border-t border-line pt-6">
+              <input type="hidden" name="productId" value={product.id} />
+              <input type="hidden" name="returnTo" value={path} />
+              <button className="inline-flex items-center gap-2 text-sm font-bold">
+                <svg aria-hidden viewBox="0 0 20 20" className={wished ? "h-5 w-5 fill-mark text-mark" : "h-5 w-5 fill-none"}>
+                  <path d="M10 17 C4 13 2 10 2 7 a4 4 0 0 1 8 -1.5 a4 4 0 0 1 8 1.5 c0 3 -2 6 -8 10 Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+                </svg>
+                <span className="underline decoration-ink/30 underline-offset-4 hover:decoration-ink">{wished ? "已收藏，點一下取消" : "加入收藏"}</span>
+              </button>
+            </form>
+          }
+        >
+          <div>
+            <p className="font-mono text-sm font-semibold tracking-wider text-muted">{productCode(product.slug)}</p>
+            <h1 className="display mt-2 text-[clamp(32px,3.6vw,48px)] leading-[1.1]">{product.name}</h1>
+            {n > 0 && (
+              <a href="#reviews" className="mt-3 inline-flex items-center gap-2 text-sm">
+                <span className="flex text-ink" aria-hidden>
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <svg key={i} viewBox="0 0 20 20" className={i <= Math.round(avg) ? "h-4 w-4 fill-current" : "h-4 w-4 fill-ink/15"}>
+                      <path d="M10 2 L12.4 7.2 L18 7.8 L13.8 11.6 L15 17.2 L10 14.4 L5 17.2 L6.2 11.6 L2 7.8 L7.6 7.2 Z" />
+                    </svg>
+                  ))}
+                </span>
+                <span className="font-bold underline decoration-ink/30 underline-offset-4">{avg.toFixed(1)}・{n} 則評論</span>
+              </a>
+            )}
+            <p className="mt-5 text-[15px] leading-[1.85] text-ink/80">{product.description}</p>
+          </div>
+        </VariantPicker>
       </section>
 
-      <section className="mx-auto mt-12 grid max-w-6xl gap-5 px-4 md:grid-cols-3">
-        <div className="card p-5 text-sm">
-          <h2 className="font-black">布料與照顧</h2>
-          <dl className="mt-3 space-y-2">
-            <div><dt className="text-muted">材質</dt><dd className="font-bold">{product.material}</dd></div>
-            <div><dt className="text-muted">洗滌</dt><dd>{product.care}</dd></div>
-            <div><dt className="text-muted">商品編號</dt><dd className="font-marker">{productCode(product.slug)}</dd></div>
+      {/* 細節：三欄，用細線分隔 */}
+      <section className="container-x mt-24 grid gap-10 border-t border-line pt-12 md:grid-cols-3 md:gap-12">
+        <div className="text-sm">
+          <h2 className="display text-2xl">布料與照顧</h2>
+          <dl className="mt-5 space-y-4">
+            <div><dt className="text-xs font-bold tracking-[0.15em] text-muted">材質</dt><dd className="mt-1 font-bold">{product.material}</dd></div>
+            <div><dt className="text-xs font-bold tracking-[0.15em] text-muted">洗滌</dt><dd className="mt-1 leading-relaxed">{product.care}</dd></div>
           </dl>
         </div>
-        <div className="card p-5 text-sm">
-          <h2 className="font-black">運費與退換</h2>
-          <p className="mt-3 leading-relaxed">滿 NT${SHIPPING.freeThreshold.toLocaleString()} 免運，未滿宅配 NT${SHIPPING.fee.HOME}、超商取貨 NT${SHIPPING.fee.CVS}。</p>
-          <p className="mt-2 leading-relaxed">收到後 {RETURN_WINDOW_DAYS} 天內可申請退換，商品要保持全新、吊牌沒剪。</p>
-          <Link href="/faq#退換貨" className="mt-3 inline-block font-bold underline decoration-2">完整退換貨規則</Link>
+        <div className="text-sm">
+          <h2 className="display text-2xl">運費與退換</h2>
+          <p className="mt-5 leading-relaxed">滿 NT${SHIPPING.freeThreshold.toLocaleString()} 免運，未滿宅配 NT${SHIPPING.fee.HOME}、超商取貨 NT${SHIPPING.fee.CVS}。</p>
+          <p className="mt-3 leading-relaxed">收到後 {RETURN_WINDOW_DAYS} 天內可申請退換，商品要保持全新、吊牌沒剪。</p>
+          <Link href="/faq#退換貨" className="mt-4 inline-block font-bold underline decoration-ink/30 underline-offset-4 hover:decoration-ink">完整退換貨規則</Link>
         </div>
         {!isAccessory && (
-          <div id="size-guide" className="card scroll-mt-24 p-5 text-sm">
-            <h2 className="font-black">尺寸表（公分）</h2>
-            <table className="mt-3 w-full text-center tabular-nums">
+          <div id="size-guide" className="scroll-mt-32 text-sm">
+            <h2 className="display text-2xl">尺寸表<span className="ml-2 font-sans text-sm font-normal text-muted">公分</span></h2>
+            <table className="mt-5 w-full text-center font-mono tabular-nums">
               <tbody>
                 {chart.map((row, i) => (
-                  <tr key={i} className={i === 0 ? "text-muted" : "border-t border-line"}>
-                    {row.map((c, j) => <td key={j} className={j === 0 && i > 0 ? "py-1.5 text-left font-bold" : "py-1.5"}>{c}</td>)}
+                  <tr key={i} className={i === 0 ? "text-xs text-muted" : "border-t border-line"}>
+                    {row.map((c, j) => <td key={j} className={j === 0 && i > 0 ? "py-2 text-left font-semibold" : "py-2"}>{c}</td>)}
                   </tr>
                 ))}
               </tbody>
@@ -105,9 +122,9 @@ export default async function ProductPage({ params }: PageProps<"/products/[slug
         )}
       </section>
 
-      <section id="reviews" className="mx-auto mt-14 max-w-6xl scroll-mt-24 px-4">
+      <section id="reviews" className="container-x mt-24 scroll-mt-32">
         <div className="flex flex-wrap items-baseline gap-x-6 gap-y-2">
-          <h2 className="text-2xl font-black">買過的人怎麼說</h2>
+          <h2 className="display text-[clamp(28px,3vw,40px)]">買過的人怎麼說</h2>
           {n > 0 && (
             <p className="text-sm text-muted">
               {n} 則・平均 {avg.toFixed(1)} 分・尺寸：偏小 {fit.SMALL}、剛好 {fit.TRUE}、偏大 {fit.LARGE}
@@ -117,14 +134,14 @@ export default async function ProductPage({ params }: PageProps<"/products/[slug
         {n === 0 ? (
           <p className="mt-4 text-sm text-muted">還沒有評論。收到商品之後就可以寫。</p>
         ) : (
-          <div className="mt-6 columns-1 gap-5 md:columns-2">
+          <div className="mt-8 columns-1 gap-5 md:columns-2 lg:columns-3">
             {product.reviews.slice(0, 10).map((r) => (
-              <article key={r.id} className="card mb-5 break-inside-avoid p-5 text-sm">
+              <article key={r.id} className="card mb-5 break-inside-avoid p-6 text-sm">
                 <p className="flex items-center gap-2">
-                  <span className="font-marker text-xl leading-none">{r.rating}/5</span>
+                  <span className="rounded-full bg-ink px-2 py-0.5 font-mono text-xs font-semibold text-white">{r.rating}.0</span>
                   <span className="font-black">{r.title}</span>
                 </p>
-                <p className="mt-2 leading-relaxed">{r.body}</p>
+                <p className="mt-3 leading-relaxed text-ink/80">{r.body}</p>
                 <p className="mt-3 text-xs text-muted">
                   {r.user.name.slice(0, 1)}＊＊・{formatDate(r.createdAt)}{r.fit && `・尺寸${FIT_LABEL[r.fit]}`}
                 </p>

@@ -9,7 +9,7 @@ export default async function ProfilePage() {
   const user = await requireUser("/account/profile");
   return (
     <div className="space-y-8">
-      <h1 className="text-2xl font-bold">個人資料</h1>
+      <h1 className="display text-3xl md:text-4xl">個人資料</h1>
       <div className="card max-w-lg p-6">
         <ActionForm action={updateProfileAction} submitLabel="儲存">
           <div>

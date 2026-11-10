@@ -34,7 +34,7 @@ export default async function OrderDetailPage({ params, searchParams }: PageProp
       )}
       <div className="flex flex-wrap items-center gap-3">
         <Link href="/account/orders" className="text-sm text-muted">← 我的訂單</Link>
-        <h1 className="text-2xl font-bold">訂單 {order.orderNumber}</h1>
+        <h1 className="display text-3xl md:text-4xl">訂單 {order.orderNumber}</h1>
         <OrderStatusBadge status={order.status} />
       </div>
 

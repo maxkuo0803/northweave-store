@@ -29,7 +29,7 @@ export default async function AccountPage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-2xl font-bold">會員總覽</h1>
+      <h1 className="display text-3xl md:text-4xl">會員總覽</h1>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         {stats.map((s) => (
           <Link key={s.label} href={s.href} className="card p-4 text-center hover:border-ink/30">

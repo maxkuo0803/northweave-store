@@ -17,7 +17,7 @@ export default async function ReturnsPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold">退換貨紀錄</h1>
+      <h1 className="display text-3xl md:text-4xl">退換貨紀錄</h1>
       <p className="mt-1 text-sm text-muted">要申請新的退換貨，請到「我的訂單」選擇已送達的訂單。</p>
       {returns.length === 0 && <p className="mt-6 text-muted">沒有退換貨紀錄。</p>}
       <ul className="mt-6 space-y-3">

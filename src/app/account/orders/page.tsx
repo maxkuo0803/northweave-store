@@ -17,7 +17,7 @@ export default async function OrdersPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold">我的訂單</h1>
+      <h1 className="display text-3xl md:text-4xl">我的訂單</h1>
       {orders.length === 0 && <p className="mt-6 text-muted">還沒有訂單。<Link href="/products" className="text-brand underline">去逛逛</Link></p>}
       <ul className="mt-6 space-y-4">
         {orders.map((o) => (

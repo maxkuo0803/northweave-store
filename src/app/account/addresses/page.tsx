@@ -13,7 +13,7 @@ export default async function AddressesPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">收件地址</h1>
+      <h1 className="display text-3xl md:text-4xl">收件地址</h1>
       <div className="grid gap-4 sm:grid-cols-2">
         {addresses.map((a) => (
           <div key={a.id} className="card p-5 text-sm">

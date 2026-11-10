@@ -1,49 +1,50 @@
-# DESIGN — 北織 NORTHWEAVE「布市攤位」
+# DESIGN — 北織 NORTHWEAVE「老布行 × 現代精品」
 
-The store is a stall at a Taiwanese fabric market (永樂布市): garments hang on a steel rail over galvanized pegboard, each with a kraft cardboard price tag clipped by a wooden clothespin, prices written in marker. Rules and forms are white notice paper pinned to the board; news and sales are fluorescent card stock.
+Redesigned 2026-11-10. The previous "布市攤位" look felt like a toy: every card tilted, a cartoon marker font, full-strength pegboard everywhere, and kraft tags covering half of each garment. The fix keeps the Taiwanese market world (galvanized pegboard, steel rail and hooks, kraft tags, red banner, fluorescent yellow, LED ticker) but presents it like a boutique: lots of space, big serif headlines, nothing tilted, faint shadows, one focal point per view.
 
 ## Tokens (`src/app/globals.css` `@theme`)
 
 | Token | Value | Role |
 |---|---|---|
-| `ink` | `#161514` | marker black: text, primary buttons, selected chips |
-| `muted` | `#555a5e` | secondary text (≥4.5:1 on `paper` and `card`) |
-| `paper` | `#e4e7e8` | page ground on operate pages (light galvanized) |
-| `board` | `#a7adb1` | pegboard (storefront ground, `pegboard` utility) |
-| `rail` | `#4a5054` | steel rail, hooks, footer shutter |
-| `card` | `#fbfbf8` | white notice paper (`card` utility) |
-| `kraft` / `kraft-dark` | `#c69c66` / `#8d6a3e` | cardboard tags (`kraft-tag` utility) |
-| `neon` | `#efeb2a` | fluorescent card (`neon-card`), announcement strip, text selection |
-| `banner` | `#c9252b` | red canvas stall banner (header only) |
-| `mark` | `#d01f26` | red marker: ONE decisive mark per view |
-| `ok` / `warn` / `bad` | `#1d6b3a` / `#8a5a00` / `#b3171d` | status |
+| `ink` | `#151413` | text, primary buttons, selected states |
+| `muted` | `#5f5b54` | secondary text (≥4.5:1 on `paper`) |
+| `paper` | `#f3f1eb` | page ground (warm white) |
+| `card` | `#fcfbf7` | cards |
+| `sand` | `#e9e5db` | quiet fills (segmented control track) |
+| `line` | `#ddd8cd` | hairlines |
+| `board` | `#c3c7c7` | full pegboard (`pegboard`: hero, auth, 404) |
+| `rail` | `#3a3f42` | rail, hooks, footer |
+| `kraft` | `#c9a06b` | kraft tags (`kraft-tag`) |
+| `neon` | `#ece63a` | LED ticker text, demo-account card, sale price on dark |
+| `mark` | `#c8222a` | Taiwan red: ONE decisive mark per view |
 
-Legacy aliases `brand` → ink, `accent` → mark, `sand` → `#d6dadc` image ground.
+Utilities: `container-x` (max-w-7xl, 20/32px gutters), `pegboard`, `pegboard-soft` (faint board used as the product stage), `card`, `kraft-tag`, `neon-card`, `display`, `num`, `btn-*`, `input`, `badge`.
 
 ## Type
-- Noto Sans TC 400/500/700/900. Signage and headings are 900 (`font-black`); body 400.
-- Permanent Marker (`font-marker`) only for product codes (NW001), prices, counts and other short Latin/numeral marks written "by hand". Never for sentences.
+- **Headlines:** Noto Serif TC 900 via `display` (`font-serif`), like an old shop sign. Scale with `clamp()`: hero 40–80px, section 32–56px, page title 36–64px.
+- **Body:** Noto Sans TC 400/700, 15–16px, line-height ≥1.7 for paragraphs.
+- **Numbers and codes:** IBM Plex Mono (`font-mono`, tabular), like a Taiwanese receipt: prices, product codes, counts, stats. `font-marker` is a legacy alias of mono. No handwriting fonts.
+- Avoid CJK punctuation at the end of display headlines; break lines with `block whitespace-nowrap` spans.
 
 ## Rules
-- Corners are rounded on a two-step scale (changed 2026-11-08 from square, at the owner's request for a more modern feel):
-  - `rounded-card` (20px): panels and cards (`card`, `neon-card`, list panels). Kraft hang tags and option tiles use `rounded-2xl` (16px).
-  - `rounded-sm` (10px): buttons, inputs, chips, alerts, thumbnails, swatches.
-  - `rounded-full`: badges, the header search field, breadcrumbs, dots and progress bars.
-  - The clothespin stays sharp (2px); it is a physical clip, not UI.
-- Depth is paper depth: a 1–2px contact line plus a soft blurred drop (`card`, `kraft-tag`, `neon-card`). No hard offset block shadows.
-- Red (`mark`) is reserved for the single decisive mark of a view: the sale price, the add-to-cart / checkout / place-order button, the marker circle on a chosen size. Regular prices are black marker.
-- Tags hang at small fixed tilts (−5°…+5°, deterministic by index) from `transform-origin: top`; they never tilt at random per render.
-- Storefront pages (home, catalog, product, auth, FAQ, 404) sit on `pegboard`. Account, cart, checkout and admin sit on `paper` with `card` panels: the world shows in tags, chips and the marker mark, not in decoration.
-- Garment images are transparent SVG silhouettes (`/api/garment/[type]?c=HEX&v=2`) with their own drop shadow; they hang directly on whatever ground they are placed on.
-- No eyebrow labels above headings, no Unicode glyphs as icons (draw an SVG), no gradients on text.
+- **Nothing tilts.** No `rotate-*` on cards, tags or headings. Motion supplies the life: tags swing on hover, hero garments sway.
+- **Radius:** `rounded-card` 20px for cards and stages, `rounded-sm` 10px for inputs, size buttons and thumbnails, `rounded-full` for buttons, chips, badges and search.
+- **Depth:** hairline border plus a very soft long shadow (`card`). No hard offset shadows.
+- **Red** goes to one thing per view: add-to-cart / checkout button, sale price, discount badge. Selected filters and sizes use ink, not red.
+- **Pegboard** at full strength only on immersive grounds (home hero, login, register, 404). Product stages use `pegboard-soft`. Lists, account, cart, checkout and admin sit on `paper`.
+- **Spacing:** sections are 96–128px apart (`pt-24 md:pt-32`); product grid gaps are 16/24px horizontal and 40/56px vertical.
+- Garment images are transparent SVG silhouettes (`/api/garment/[type]?c=HEX&v=2`).
+- Icons are inline SVG; no emoji or Unicode glyphs as icons. No eyebrow labels, no gradient text.
 
-## Signature interactions
-- **Swing:** a tag on hover/focus swings on its clothespin (`swing-tag` + `swing-on-hover`, 900ms ease-out, disabled under reduced motion).
-- **Size tags:** every size is present; sold-out sizes are grey, struck through and disabled; the chosen size is circled by a red marker stroke drawn in 350ms.
-- **Sold-out product:** the tag turns grey and reads 售完・等補貨 instead of disappearing.
+## Motion (all disabled under `prefers-reduced-motion`)
+- **LED ticker** (`Marquee`): store rules scroll in the header (mono, neon on ink); a big red serif banner ticker sits under the home hero. Pauses on hover.
+- **Hero rail** (`src/app/HeroRail.tsx`): three featured garments sway on the rail; on mouse move they shift by depth (parallax).
+- **Reveal** (`src/components/motion/Reveal.tsx`): sections fade up when scrolled into view, staggered 60–90ms. Content already on screen at load is never hidden.
+- **Hover:** card garment lifts 6px and scales 3%, its code tag swings; buttons scale to 0.98 on press. Color-change animations move only transform, never opacity (a paused animation must not hide the image).
 
 ## Components
-- `ProductCard` (`src/components/ProductCard.tsx`): rail segment + hook + garment + kraft tag (code, name, price, color dots), optional neon 特價 card. `Rail` lays cards in rows; each card draws its own rail segment so every row gets a rail.
-- `Header`: neon announcement strip, red banner with scalloped edge, kraft cart counter.
-- `Footer`: dark rolling-shutter stripes.
-- Buttons: `btn-primary` (ink), `btn-mark` (red, one per view), `btn-outline`, `btn-danger`.
+- `ProductCard`: 4:5 `pegboard-soft` stage with a rail, hook, garment, small kraft code tag and discount pill, then name, color dots and mono price underneath. `tone="dark"` for dark sections.
+- `Header`: sticky; LED ticker, red seal logo (北織 stacked in serif), pill nav, search, account and bag icons with a red count bubble. On mobile, categories become a horizontal pill row.
+- `Footer`: dark rail ground, link columns, and a full-width SVG `NORTHWEAVE` wordmark clipped at the bottom.
+- Product page: sticky stage with per-color thumbnails on the left; on the right a code, serif name, star rating, mono price, round color swatches, ink size buttons, a − n + stepper, a full-width red add-to-cart button and three reassurance lines.
+- Buttons: `btn-primary` (ink pill), `btn-mark` (red pill, one per view), `btn-outline`, `btn-danger`.

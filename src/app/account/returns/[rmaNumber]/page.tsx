@@ -36,7 +36,7 @@ export default async function ReturnDetailPage({ params, searchParams }: PagePro
       {created && <div className="rounded-2xl bg-ok/10 p-5 text-sm text-ok">已收到您的申請，我們會在 1–2 個工作天內審核，結果會通知您。</div>}
       <div className="flex flex-wrap items-center gap-3">
         <Link href="/account/returns" className="text-sm text-muted">← 退換貨紀錄</Link>
-        <h1 className="text-2xl font-bold">{r.rmaNumber}</h1>
+        <h1 className="display text-3xl md:text-4xl">{r.rmaNumber}</h1>
         <span className="badge bg-sand">{RETURN_TYPE_LABEL[r.type]}</span>
         <ReturnStatusBadge status={r.status} />
       </div>

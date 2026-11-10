@@ -3,24 +3,18 @@
 import { useActionState, useMemo, useState } from "react";
 import Link from "next/link";
 import { addToCartAction } from "@/app/cart/actions";
+import { Hook } from "@/components/ProductCard";
+import { PAYMENT_METHOD_LABEL, RETURN_WINDOW_DAYS, SHIPPING, formatPrice } from "@/lib/store-config";
 import { cn } from "@/lib/utils";
 
 type Variant = { id: string; color: string; colorHex: string; size: string; stock: number };
 type Image = { url: string; alt: string; color: string | null };
 
-// 紅色麥克筆圈：選中的尺寸被圈起來
-function MarkerCircle() {
+// 小圖示：勾勾
+function Check() {
   return (
-    <svg aria-hidden viewBox="0 0 64 44" preserveAspectRatio="none" className="pointer-events-none absolute -inset-2 h-[calc(100%+16px)] w-[calc(100%+16px)] text-mark">
-      <path
-        d="M8 22 C6 8 40 2 54 9 C64 15 60 34 42 39 C24 44 4 38 6 22 C7 14 20 7 34 7"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="3"
-        strokeLinecap="round"
-        pathLength={1}
-        className="[stroke-dasharray:1] [stroke-dashoffset:1] motion-safe:animate-[draw_.35s_ease-out_forwards] motion-reduce:[stroke-dashoffset:0]"
-      />
+    <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0 text-ok">
+      <path d="M3 8.5 L6.5 12 L13 4.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -30,7 +24,6 @@ export function VariantPicker({
   images,
   returnTo,
   code,
-  name,
   price,
   salePrice,
   children,
@@ -56,42 +49,69 @@ export function VariantPicker({
   const selected = variants.find((v) => v.color === color && v.size === size);
   const image = images.find((i) => i.color === color) ?? images[0];
   const stockOf = (s: string) => variants.find((v) => v.color === color && v.size === s)?.stock ?? 0;
+  const maxQty = Math.min(10, Math.max(1, selected?.stock ?? 1));
+  const off = salePrice ? Math.round((1 - salePrice / price) * 100) : 0;
 
   return (
-    <div className="grid items-start gap-10 md:grid-cols-[1.1fr_1fr]">
-      {/* 左：掛在鐵桿上的這一件 */}
-      <div className="relative pt-8">
-        <span aria-hidden className="absolute inset-x-0 top-0 h-2.5 bg-rail shadow-[0_3px_0_rgb(0_0_0/.22)]" />
-        <svg aria-hidden viewBox="0 0 24 34" className="absolute top-0 left-1/2 h-11 w-7 -translate-x-1/2 text-rail">
-          <path d="M12 0 V10 Q12 17 6 17 Q1 17 1 12" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" />
-          <path d="M12 10 V34" stroke="currentColor" strokeWidth="2" />
-        </svg>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img key={image?.url} src={image?.url} alt={image?.alt} className="mx-auto aspect-square w-[86%]" />
-        <div className="-mt-[18%] flex justify-center">
-          <div className="kraft-tag swing-tag w-64 px-4 pt-6 pb-4" style={{ "--tilt": "-3deg" } as React.CSSProperties}>
-            <span aria-hidden className="absolute -top-3.5 left-1/2 h-8 w-5 -translate-x-1/2 rounded-[2px] bg-[#d9b989] shadow-[inset_0_0_0_1.5px_#9c7a4c,0_2px_3px_rgb(0_0_0/.3)]" />
-            <p className="font-marker text-base leading-none">{code}</p>
-            <p className="mt-2 text-sm font-bold">{name}</p>
-            <p className="mt-1 text-sm font-bold">{color}{size && ` / ${size}`}</p>
-            {salePrice ? (
-              <p className="mt-1 flex items-baseline gap-2">
-                <span className="font-marker text-4xl leading-none text-mark">{salePrice}</span>
-                <span className="text-sm font-bold line-through decoration-2">{price}</span>
-              </p>
-            ) : (
-              <p className="mt-1 font-marker text-4xl leading-none">{price}</p>
-            )}
+    <div className="grid items-start gap-10 md:grid-cols-[1.15fr_1fr] lg:gap-16">
+      {/* 左：商品台（捲動時固定） */}
+      <div className="md:sticky md:top-32">
+        <div className="pegboard-soft relative aspect-[4/5] overflow-hidden rounded-card">
+          <span aria-hidden className="absolute inset-x-0 top-[8%] h-1.5 bg-rail/90 shadow-[0_2px_0_rgb(0_0_0/.12)]" />
+          <div className="absolute inset-x-0 top-[8%] flex flex-col items-center">
+            <Hook className="-mt-[3px] h-11 w-7" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img key={image?.url} src={image?.url} alt={image?.alt} className="-mt-4 aspect-square w-[82%] motion-safe:animate-[fade-in_.5s_ease-out]" />
           </div>
+          <span className="absolute top-[calc(8%+6px)] right-[8%] flex flex-col items-center">
+            <span aria-hidden className="h-4 w-px bg-rail/60" />
+            <span className="kraft-tag px-2.5 py-1.5 font-mono text-xs leading-none font-semibold tracking-wide">{code}</span>
+          </span>
+          {off > 0 && <span className="absolute bottom-4 left-4 rounded-full bg-mark px-3 py-1 font-mono text-sm font-semibold text-white">−{off}%</span>}
         </div>
+        {/* 各顏色的小圖：點了直接換顏色 */}
+        {colors.length > 1 && (
+          <div className="mt-3 grid grid-cols-5 gap-2 sm:grid-cols-6">
+            {colors.map(([n]) => {
+              const img = images.find((i) => i.color === n) ?? images[0];
+              return (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setColor(n)}
+                  aria-label={`看 ${n}`}
+                  className={cn("pegboard-soft aspect-square overflow-hidden rounded-sm p-1 ring-offset-2 ring-offset-paper transition-shadow", color === n ? "ring-2 ring-ink" : "hover:ring-1 hover:ring-ink/30")}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={img?.url} alt="" className="h-full w-full" />
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      {/* 右：白色告示紙，挑顏色、尺寸、加入購物車 */}
-      <div id="picker" className="card space-y-6 p-6 md:p-7">
+      {/* 右：品名、價錢、選顏色尺寸、加入購物車 */}
+      <div id="picker" className="space-y-8">
         {children}
-        <div>
-          <p className="mb-2 text-sm font-bold">顏色：{color}</p>
-          <div className="flex flex-wrap gap-2.5">
+
+        <div className="flex items-baseline gap-3 font-mono tabular-nums">
+          {salePrice ? (
+            <>
+              <span className="text-3xl font-semibold text-mark">{formatPrice(salePrice)}</span>
+              <span className="text-base text-muted line-through">{formatPrice(price)}</span>
+            </>
+          ) : (
+            <span className="text-3xl font-semibold">{formatPrice(price)}</span>
+          )}
+        </div>
+
+        <div className="border-t border-line pt-7">
+          <p className="mb-3 text-sm">
+            <span className="font-bold">顏色</span>
+            <span className="ml-2 text-muted">{color}</span>
+          </p>
+          <div className="flex flex-wrap gap-3">
             {colors.map(([n, hex]) => (
               <button
                 key={n}
@@ -100,18 +120,27 @@ export function VariantPicker({
                 aria-label={n}
                 aria-pressed={color === n}
                 onClick={() => setColor(n)}
-                className={cn("h-10 w-10 rounded-sm ring-1 ring-ink/25 transition-transform hover:-translate-y-0.5", color === n && "ring-2 ring-ink ring-offset-2")}
+                className={cn(
+                  "h-10 w-10 rounded-full ring-1 ring-ink/20 ring-offset-[3px] ring-offset-paper transition-transform hover:scale-110",
+                  color === n && "ring-2 ring-ink",
+                )}
                 style={{ background: hex }}
               />
             ))}
           </div>
         </div>
+
         <div>
-          <div className="mb-2 flex justify-between text-sm">
-            <p className="font-bold">尺寸：{size ?? "請選一個"}</p>
-            <Link href="#size-guide" className="text-muted underline">尺寸表</Link>
+          <div className="mb-3 flex items-baseline justify-between text-sm">
+            <p>
+              <span className="font-bold">尺寸</span>
+              <span className="ml-2 text-muted">{size ?? "請選一個"}</span>
+            </p>
+            <Link href="#size-guide" className="font-bold underline decoration-ink/30 underline-offset-4 hover:decoration-ink">
+              尺寸表
+            </Link>
           </div>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2.5">
             {sizes.map((s) => {
               const stock = stockOf(s);
               const on = size === s;
@@ -124,38 +153,54 @@ export function VariantPicker({
                   aria-pressed={on}
                   aria-label={stock === 0 ? `${s} 售完` : s}
                   className={cn(
-                    "relative min-w-13 rounded-sm px-3 py-2 text-base font-black transition-transform",
+                    "h-12 min-w-14 rounded-sm border px-4 font-mono text-[15px] font-semibold transition-colors",
                     stock === 0
-                      ? "cursor-not-allowed bg-[#c9cdcf] text-ink/45 line-through decoration-2"
-                      : "kraft-tag hover:-translate-y-0.5",
+                      ? "cursor-not-allowed border-dashed border-ink/20 text-ink/35 line-through"
+                      : on
+                        ? "border-ink bg-ink text-white"
+                        : "border-ink/20 bg-white/60 hover:border-ink",
                   )}
                 >
                   {s}
-                  {on && <MarkerCircle />}
                 </button>
               );
             })}
           </div>
-          {selected && selected.stock > 0 && selected.stock <= 4 && <p className="mt-3 text-sm font-bold text-mark">這個尺寸只剩 {selected.stock} 件</p>}
+          {selected && selected.stock > 0 && selected.stock <= 4 && <p className="mt-3 text-sm font-bold text-warn">這個尺寸只剩 {selected.stock} 件</p>}
         </div>
+
         <form action={action} className="flex gap-3">
           <input type="hidden" name="variantId" value={selected?.id ?? ""} />
           <input type="hidden" name="returnTo" value={returnTo} />
-          <select name="quantity" value={qty} onChange={(e) => setQty(Number(e.target.value))} className="input w-20" aria-label="數量">
-            {Array.from({ length: Math.min(10, Math.max(1, selected?.stock ?? 1)) }, (_, i) => i + 1).map((n) => <option key={n}>{n}</option>)}
-          </select>
-          <button className="btn-mark flex-1 text-base" disabled={pending || !selected || selected.stock === 0}>
+          <input type="hidden" name="quantity" value={Math.min(qty, maxQty)} />
+          {/* 數量：− 1 + */}
+          <div className="flex h-14 items-center rounded-full border border-ink/20 bg-white/60" role="group" aria-label="數量">
+            <button type="button" onClick={() => setQty((q) => Math.max(1, q - 1))} className="grid h-full w-11 place-items-center rounded-l-full text-lg hover:bg-ink/5" aria-label="減少數量">−</button>
+            <span className="w-6 text-center font-mono font-semibold tabular-nums" aria-live="polite">{Math.min(qty, maxQty)}</span>
+            <button type="button" onClick={() => setQty((q) => Math.min(maxQty, q + 1))} className="grid h-full w-11 place-items-center rounded-r-full text-lg hover:bg-ink/5" aria-label="增加數量">+</button>
+          </div>
+          <button className="btn-mark h-14 flex-1 text-base" disabled={pending || !selected || selected.stock === 0}>
             {pending ? "加入中…" : !size ? "先選尺寸" : selected?.stock === 0 ? "這個尺寸售完了" : "加入購物車"}
           </button>
         </form>
+
         <div aria-live="polite">
-          {state?.error && <p className="text-sm font-bold text-bad">{state.error}</p>}
+          {state?.error && <p className="rounded-sm bg-bad/10 px-4 py-3 text-sm font-bold text-bad">{state.error}</p>}
           {state?.ok && (
-            <p className="neon-card inline-block px-3 py-2 text-sm font-bold">
-              {state.ok}　<Link href="/cart" className="underline decoration-2">去結帳</Link>
+            <p className="flex flex-wrap items-center justify-between gap-2 rounded-sm bg-ok/10 px-4 py-3 text-sm font-bold text-ok">
+              {state.ok}
+              <Link href="/cart" className="btn-primary h-9 px-4 text-sm">去結帳</Link>
             </p>
           )}
         </div>
+
+        {/* 讓人安心的三件事 */}
+        <ul className="grid gap-2.5 text-sm text-ink/80">
+          <li className="flex items-center gap-2.5"><Check />滿 NT${SHIPPING.freeThreshold.toLocaleString()} 免運，超商取貨 NT${SHIPPING.fee.CVS}</li>
+          <li className="flex items-center gap-2.5"><Check />收到後 {RETURN_WINDOW_DAYS} 天內可退換，尺寸不合第一次換貨免運</li>
+          <li className="flex items-center gap-2.5"><Check />{Object.values(PAYMENT_METHOD_LABEL).join("、")}</li>
+        </ul>
+
         {footer}
       </div>
     </div>

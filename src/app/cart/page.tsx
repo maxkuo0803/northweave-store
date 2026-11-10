@@ -12,7 +12,7 @@ export default async function CartPage() {
   if (!session) {
     return (
       <div className="mx-auto max-w-xl px-4 py-20 text-center">
-        <h1 className="text-2xl font-bold">購物車</h1>
+        <h1 className="display text-3xl md:text-4xl">購物車</h1>
         <p className="mt-3 text-muted">請先登入，購物車會保存在您的會員帳號中。</p>
         <Link href="/login?next=/cart" className="btn-primary mt-6">登入</Link>
       </div>
@@ -26,21 +26,21 @@ export default async function CartPage() {
   if (lines.length === 0) {
     return (
       <div className="mx-auto max-w-xl px-4 py-20 text-center">
-        <h1 className="text-2xl font-bold">購物車是空的</h1>
+        <h1 className="display text-3xl md:text-4xl">購物車是空的</h1>
         <Link href="/products" className="btn-primary mt-6">去逛逛</Link>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10">
-      <h1 className="text-2xl font-bold">購物車</h1>
+    <div className="container-x py-10 md:py-14">
+      <h1 className="display text-3xl md:text-4xl">購物車</h1>
       <div className="mt-6 grid gap-8 lg:grid-cols-[1fr_320px]">
         <ul className="divide-y divide-line">
           {lines.map((l) => (
             <li key={l.id} className="flex gap-4 py-4">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={l.imageUrl} alt="" className="h-24 w-24 rounded-sm bg-sand" />
+              <img src={l.imageUrl} alt="" className="pegboard-soft h-24 w-24 rounded-sm" />
               <div className="flex-1 text-sm">
                 <Link href={`/products/${l.slug}`} className="font-medium hover:text-brand">{l.productName}</Link>
                 <p className="mt-1 text-muted">{l.color} / {l.size}</p>
@@ -52,11 +52,11 @@ export default async function CartPage() {
                     <select name="quantity" defaultValue={l.quantity} className="input w-20 py-1" aria-label="數量">
                       {Array.from({ length: Math.max(l.quantity, Math.min(10, l.stock)) }, (_, i) => i + 1).map((n) => <option key={n}>{n}</option>)}
                     </select>
-                    <button className="text-brand underline">更新</button>
+                    <button className="shrink-0 font-bold whitespace-nowrap underline underline-offset-4">更新</button>
                   </form>
                   <form action={removeCartItemAction}>
                     <input type="hidden" name="id" value={l.id} />
-                    <button className="text-muted underline">移除</button>
+                    <button className="shrink-0 whitespace-nowrap text-muted underline underline-offset-4">移除</button>
                   </form>
                 </div>
               </div>
@@ -66,7 +66,7 @@ export default async function CartPage() {
         </ul>
         <aside className="card h-fit space-y-3 p-6 text-sm">
           <div className="flex justify-between"><span>商品小計</span><span>{formatPrice(q.subtotal)}</span></div>
-          <p className="text-muted">{gap > 0 ? `再買 ${formatPrice(gap)} 即可免運` : "已達免運門檻 🎉"}</p>
+          <p className="text-muted">{gap > 0 ? `再買 ${formatPrice(gap)} 即可免運` : "已達免運門檻"}</p>
           <div className="h-2 overflow-hidden rounded-full bg-sand">
             <div className="h-full bg-brand" style={{ width: `${Math.min(100, (q.subtotal / SHIPPING.freeThreshold) * 100)}%` }} />
           </div>

@@ -13,26 +13,26 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   if (await getSession()) redirect(nextPath);
 
   return (
-    <div className="pegboard px-4 py-14">
-      <div className="mx-auto grid max-w-3xl items-start gap-8 md:grid-cols-[1fr_260px]">
-        <div className="card p-7">
-          <h1 className="text-2xl font-black">會員登入</h1>
-          <p className="mt-1 text-sm text-muted">
-            還沒有帳號？<Link href={`/register?next=${encodeURIComponent(nextPath)}`} className="font-bold text-ink underline decoration-2">註冊一個</Link>
+    <div className="pegboard px-4 py-16 md:py-24">
+      <div className="mx-auto grid max-w-4xl items-start gap-6 md:grid-cols-[1fr_280px]">
+        <div className="card p-8 md:p-10">
+          <h1 className="display text-4xl">會員登入</h1>
+          <p className="mt-2 text-sm text-muted">
+            還沒有帳號？<Link href={`/register?next=${encodeURIComponent(nextPath)}`} className="font-bold text-ink underline underline-offset-4">註冊一個</Link>
           </p>
-          <div className="mt-6">
+          <div className="mt-8">
             <LoginForm next={nextPath} />
           </div>
         </div>
-        <div className="neon-card rotate-2 p-5 text-sm">
-          <p className="text-lg font-black">作品集試用帳號</p>
-          <p className="mt-3 font-bold">會員</p>
+        <div className="neon-card p-6 text-sm">
+          <p className="display text-xl">作品集試用帳號</p>
+          <p className="mt-4 font-bold">會員</p>
           <p>demo@northweave.test</p>
-          <p className="font-marker">Demo1234!</p>
-          <p className="mt-3 font-bold">店員（可進後台處理訂單）</p>
+          <p className="font-mono font-semibold">Demo1234!</p>
+          <p className="mt-4 font-bold">店員（可進後台處理訂單）</p>
           <p>staff@northweave.test</p>
-          <p className="font-marker">Staff1234!</p>
-          <p className="mt-3 text-xs">試用帳號大家共用，不能改密碼。想試完整會員功能可以自己註冊。</p>
+          <p className="font-mono font-semibold">Staff1234!</p>
+          <p className="mt-4 border-t border-ink/15 pt-3 text-xs">試用帳號大家共用，不能改密碼。想試完整會員功能可以自己註冊。</p>
         </div>
       </div>
     </div>
