@@ -3,6 +3,8 @@ import { IBM_Plex_Mono, Noto_Sans_TC, Noto_Serif_TC } from "next/font/google";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { ChatWidget } from "@/components/chat/ChatWidget";
+import { XiaozhiProvider } from "@/components/chat/XiaozhiProvider";
+import { getShopMode } from "@/lib/shop-mode";
 import { STORE } from "@/lib/store-config";
 import "./globals.css";
 
@@ -18,15 +20,21 @@ export const metadata: Metadata = {
   description: "NORTHWEAVE 北織：台灣小量製作的服飾品牌。（作品集用虛構品牌）",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const mode = await getShopMode();
+  // AI 回覆裡的網址用的網域，用來判斷是不是站內連結
+  const siteOrigin = new URL(process.env.BETTER_AUTH_URL || "http://localhost:3000").origin;
   return (
     <html lang="zh-Hant-TW" className={`${noto.variable} ${notoSerif.variable} ${mono.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col">
-        <Header />
-        <main className="flex-1">{children}</main>
-        <Footer />
-        {/* AI 客服聊天視窗（後台不顯示） */}
-        <ChatWidget siteOrigin={new URL(process.env.BETTER_AUTH_URL || "http://localhost:3000").origin} />
+        {/* 小織（AI 店員）的對話狀態整站共用：首頁舞台、浮動小織都看同一串對話 */}
+        <XiaozhiProvider mode={mode} siteOrigin={siteOrigin}>
+          <Header />
+          <main className="flex-1">{children}</main>
+          <Footer />
+          {/* 浮動小織（後台、首頁舞台不顯示） */}
+          <ChatWidget />
+        </XiaozhiProvider>
       </body>
     </html>
   );

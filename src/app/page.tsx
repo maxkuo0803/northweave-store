@@ -7,6 +7,9 @@ import { Marquee } from "@/components/motion/Marquee";
 import { PAYMENT_METHOD_LABEL, RETURN_WINDOW_DAYS, SHIPPING } from "@/lib/store-config";
 import { cn } from "@/lib/utils";
 import { HeroRail } from "./HeroRail";
+import { Concierge } from "./Concierge";
+import { ConciergeButton } from "@/components/chat/ModeSwitch";
+import { getShopMode } from "@/lib/shop-mode";
 
 const STALLS = [
   { slug: "women", name: "女裝", note: "上衣、洋裝、針織" },
@@ -42,6 +45,21 @@ function SectionHead({ title, sub, href, linkLabel, dark }: { title: string; sub
 }
 
 export default async function HomePage() {
+  // 預設「小織帶你逛」：首頁就是店員小織；顧客選了「自己逛」才顯示傳統首頁
+  if ((await getShopMode()) === "concierge") {
+    const featured = await prisma.product.findMany({
+      where: { status: "ACTIVE", isFeatured: true },
+      take: 3,
+      orderBy: { createdAt: "desc" },
+      select: { slug: true, name: true, price: true, salePrice: true, images: { take: 1, select: { url: true } } },
+    });
+    return (
+      <Concierge
+        featured={featured.map((p) => ({ code: productCode(p.slug), name: p.name, price: p.price, salePrice: p.salePrice, image: p.images[0]?.url ?? "" }))}
+      />
+    );
+  }
+
   const active = { status: "ACTIVE" as const };
   const inCategory = (slug: string) => ({ ...active, category: { OR: [{ slug }, { parent: { slug } }] } });
   const [featured, sale, stalls, materials, totalActive] = await Promise.all([
@@ -96,6 +114,7 @@ export default async function HomePage() {
                 看特價
               </Link>
             </div>
+            <ConciergeButton className="mt-4" />
             {/* 三個真實的數字（從資料庫與設定檔來） */}
             <dl className="mt-12 grid max-w-md grid-cols-3 divide-x divide-ink/15 border-y border-ink/15 py-4">
               {[
@@ -244,7 +263,7 @@ export default async function HomePage() {
           ))}
         </Reveal>
         <p className="mt-6 text-center text-sm">
-          其他問題？<Link href="/faq" className="font-bold underline decoration-ink/40 hover:decoration-ink">看常見問題</Link>，或點右下角問小織。
+          其他問題？<Link href="/faq" className="font-bold underline decoration-ink/40 hover:decoration-ink">看常見問題</Link>，或點右下角的小織（⌘K）。
         </p>
       </section>
     </div>

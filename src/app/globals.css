@@ -228,10 +228,88 @@ a {
 .bot-think {
   animation: bot-think 0.9s ease-in-out infinite;
 }
+/* 首頁小織舞台的背景：深色底上很淡的洞洞板，像打烊後只留一盞燈的布行 */
+.concierge-board {
+  background-image: radial-gradient(circle at 12px 12px, rgb(255 255 255 / 0.05) 1.6px, transparent 2.2px);
+  background-size: 24px 24px;
+  mask-image: radial-gradient(ellipse at 50% 20%, #000 0%, transparent 75%);
+}
+
+/* ───── 小織光球（線團）───── */
+/* 三圈線各自繞圈，再加上「壓扁 / 拉長」，看起來像在立體地轉 */
+@keyframes orb-spin { to { transform: rotate(360deg); } }
+@keyframes orb-wobble {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(0.45); }
+}
+@keyframes orb-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.035); }
+}
+@keyframes orb-glow {
+  0%, 100% { opacity: 0.55; transform: scale(0.92); }
+  50% { opacity: 0.9; transform: scale(1.06); }
+}
+@keyframes orb-talk {
+  0%, 100% { transform: scale(1); }
+  20% { transform: scale(1.07); }
+  40% { transform: scale(0.98); }
+  65% { transform: scale(1.05); }
+}
+.orb { --orb-speed: 1; }
+.orb-body { animation: orb-breathe 4.2s ease-in-out infinite; }
+.orb-glow {
+  background: radial-gradient(circle, rgb(236 230 58 / 0.42) 0%, rgb(201 160 107 / 0.22) 45%, transparent 70%);
+  filter: blur(6px);
+  animation: orb-glow 4.2s ease-in-out infinite;
+}
+.orb-ring { transform-box: view-box; transform-origin: 50px 50px; }
+.orb-ring-1 { animation: orb-spin calc(9s / var(--orb-speed)) linear infinite; }
+.orb-ring-2 { animation: orb-spin calc(13s / var(--orb-speed)) linear infinite reverse; animation-delay: -4.3s; }
+.orb-ring-3 { animation: orb-spin calc(17s / var(--orb-speed)) linear infinite; animation-delay: -11s; }
+.orb-ring > ellipse { transform-box: fill-box; transform-origin: center; animation: orb-wobble calc(5s / var(--orb-speed)) ease-in-out infinite; }
+.orb-ring-4 { animation: orb-spin calc(11s / var(--orb-speed)) linear infinite reverse; animation-delay: -7s; }
+.orb-ring-5 { animation: orb-spin calc(15s / var(--orb-speed)) linear infinite; animation-delay: -2s; }
+.orb-ring-2 > ellipse { animation-delay: -1.6s; }
+.orb-ring-4 > ellipse { animation-delay: -2.4s; }
+.orb-ring-5 > ellipse { animation-delay: -4s; }
+.orb-ring-3 > ellipse { animation-delay: -3.1s; }
+.orb-listening { --orb-speed: 1.8; }
+.orb-listening .orb-glow { animation-duration: 1.1s; }
+.orb-listening .orb-body { animation: orb-breathe 1.1s ease-in-out infinite; }
+.orb-thinking { --orb-speed: 4.5; }
+.orb-thinking .orb-glow { animation-duration: 1.6s; }
+.orb-speaking { --orb-speed: 2; }
+.orb-speaking .orb-body { animation: orb-talk 0.9s ease-in-out infinite; }
+.orb-speaking .orb-glow { animation-duration: 0.9s; }
+
+/* 麥克風正在聽：外面一圈光一直擴散 */
+@keyframes mic-ring {
+  from { box-shadow: 0 0 0 0 rgb(236 230 58 / 0.55); }
+  to { box-shadow: 0 0 0 14px rgb(236 230 58 / 0); }
+}
+.mic-live { animation: mic-ring 1.1s ease-out infinite; }
+
+/* 對話面板從下面升上來、背景慢慢變暗 */
+@keyframes sheet-in {
+  from { transform: translateY(40px) scale(0.98); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@keyframes fade-veil {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .marquee-track, .sway { animation: none; }
   .reveal { opacity: 1; transform: none; transition: none; }
   .bot-blink, .bot-think, .bot-float, .bot-hop { animation: none; }
+  .orb *, .orb-body, .orb-glow, .mic-live { animation: none !important; }
+  .orb-ring-2 { transform: rotate(60deg); }
+  .orb-ring-3 { transform: rotate(-60deg); }
+  .orb-ring-4 { transform: rotate(30deg); }
+  .orb-ring-5 { transform: rotate(-30deg); }
+  [class*="animate-[sheet-in"], [class*="animate-[fade-veil"] { animation: none !important; }
   [class*="animate-[nudge-in"] { animation: none !important; }
   .group:hover .swing-on-hover,
   .group:focus-visible .swing-on-hover {

@@ -4,6 +4,8 @@ import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PAYMENT_METHOD_LABEL, RETURN_WINDOW_DAYS, SHIPPING } from "@/lib/store-config";
 import { Marquee } from "@/components/motion/Marquee";
+import { ModeSwitch } from "@/components/chat/ModeSwitch";
+import { getShopMode } from "@/lib/shop-mode";
 
 const NAV = [
   { href: "/products?category=women", label: "女裝" },
@@ -29,6 +31,7 @@ export async function Header() {
     ? (await prisma.cartItem.aggregate({ where: { userId: session.user.id }, _sum: { quantity: true } }))._sum.quantity ?? 0
     : 0;
   const isStaff = session?.user.role === "admin" || session?.user.role === "staff";
+  const mode = await getShopMode();
 
   return (
     <header className="sticky top-0 z-30">
@@ -48,15 +51,15 @@ export async function Header() {
             </span>
           </Link>
 
-          <nav aria-label="主選單" className="hidden items-center gap-1 text-[15px] font-bold md:flex">
+          <nav aria-label="主選單" className="hidden shrink-0 items-center gap-0.5 text-[15px] font-bold whitespace-nowrap md:flex">
             {NAV.map((n) => (
-              <Link key={n.href} href={n.href} className="rounded-full px-3.5 py-2 transition-colors hover:bg-ink/[0.06]">
+              <Link key={n.href} href={n.href} className="rounded-full px-3 py-2 transition-colors hover:bg-ink/[0.06]">
                 {n.label}
               </Link>
             ))}
           </nav>
 
-          <Form action="/products" className="relative ml-auto hidden w-64 lg:block">
+          <Form action="/products" className="relative ml-auto hidden w-52 min-w-0 lg:block xl:w-60">
             <svg aria-hidden viewBox="0 0 20 20" className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted">
               <circle cx="8.5" cy="8.5" r="5.5" fill="none" stroke="currentColor" strokeWidth="1.8" />
               <path d="M13 13 L17 17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
@@ -69,7 +72,10 @@ export async function Header() {
             />
           </Form>
 
-          <div className="ml-auto flex items-center gap-1 text-sm font-bold lg:ml-0">
+          {/* 逛街方式：小織帶逛 / 自己逛 */}
+          <ModeSwitch mode={mode} className="ml-auto hidden lg:ml-0 xl:flex" />
+
+          <div className="ml-auto flex items-center gap-1 text-sm font-bold lg:ml-0 xl:ml-0">
             {isStaff && (
               <Link href="/admin" className="mr-1 hidden rounded-full border border-ink/80 px-3 py-1.5 text-xs transition-colors hover:bg-ink hover:text-white sm:inline-flex">
                 後台
@@ -102,13 +108,14 @@ export async function Header() {
         </div>
 
         {/* 手機版：分類橫向捲動 */}
-        <nav aria-label="分類" className="flex gap-1 overflow-x-auto px-3 pb-2.5 text-sm font-bold [scrollbar-width:none] md:hidden">
+        <nav aria-label="分類" className="flex items-center gap-1 overflow-x-auto px-3 pb-2.5 text-sm font-bold [scrollbar-width:none] xl:hidden">
+          <ModeSwitch mode={mode} className="mr-1" />
           {NAV.map((n) => (
-            <Link key={n.href} href={n.href} className="shrink-0 rounded-full bg-ink/[0.05] px-3.5 py-1.5">
+            <Link key={n.href} href={n.href} className="shrink-0 rounded-full bg-ink/[0.05] px-3.5 py-1.5 md:hidden">
               {n.label}
             </Link>
           ))}
-          <Link href="/products" className="shrink-0 rounded-full bg-ink/[0.05] px-3.5 py-1.5">搜尋</Link>
+          <Link href="/products" className="shrink-0 rounded-full bg-ink/[0.05] px-3.5 py-1.5 md:hidden">搜尋</Link>
         </nav>
       </div>
     </header>
