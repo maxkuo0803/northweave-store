@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AskButton } from "@/components/chat/AskChips";
 import { prisma } from "@/lib/prisma";
 import { getFilterOptions, listProducts, SORTS, type SortKey } from "@/lib/catalog";
 import { ProductCard, Rail } from "@/components/ProductCard";
@@ -55,6 +56,10 @@ export default async function ProductsPage({ searchParams }: PageProps<"/product
           <p className="mt-3 text-sm text-muted">
             <span className="font-mono font-semibold text-ink tabular-nums">{total}</span> 件商品{filters.size && `・尺寸 ${filters.size}`}{filters.color && `・${filters.color}`}
           </p>
+          {/* 搜尋結果太少：店員小織用「意思」幫忙找（例如「約會」「下雨天」這種商品名稱裡沒有的字） */}
+          {filters.q && total < 3 && (
+            <AskButton className="mt-4" source="search-few" label={`讓小織幫你找「${filters.q}」`} text={`幫我找：${filters.q}`} />
+          )}
         </div>
         <div className="flex w-full flex-wrap items-center gap-3 md:w-auto">
           <form action="/products" className="relative w-full md:w-60">
@@ -92,7 +97,8 @@ export default async function ProductsPage({ searchParams }: PageProps<"/product
           {products.length === 0 ? (
             <div className="rounded-card border border-dashed border-ink/25 px-6 py-16 text-center">
               <p className="display text-2xl">這排是空的</p>
-              <p className="mt-2 text-sm text-muted">沒有符合條件、而且有庫存的商品。換個尺寸或顏色試試。</p>
+              <p className="mt-2 text-sm text-muted">沒有符合條件、而且有庫存的商品。換個尺寸或顏色試試，或直接告訴小織你想找什麼。</p>
+              <AskButton className="mt-5" source="search-empty" label="跟小織說你想找什麼" text={filters.q ? `幫我找：${filters.q}` : "我在找衣服，可以幫我推薦嗎？"} />
               <Link href="/products" className="btn-outline mt-6">清除全部篩選</Link>
             </div>
           ) : (

@@ -561,3 +561,19 @@ model KnowledgeChunk {
 
   @@unique([sourceType, sourceId])
 }
+
+// 小織的使用統計：誰在哪一頁、從哪個入口打開小織、招呼 / 推薦有沒有被點、有沒有因此下單。
+// 只記隨機訪客 ID（cookie）和會員 ID，不記 IP、不記對話內容。
+model ChatEvent {
+  id        String   @id @default(cuid())
+  visitorId String?
+  userId    String?
+  type      String // greet_shown / greet_click / open / chip_click / nudge_shown / hint_shown / hint_click / picker_add / order_placed
+  source    String? // 入口：avatar、product-chip、search-empty、cart-freeship、order-chip、size-hesitation…
+  path      String?
+  value     Int? // 金額（order_placed 用）
+  createdAt DateTime @default(now())
+
+  @@index([type, createdAt])
+  @@index([createdAt])
+}

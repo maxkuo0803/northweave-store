@@ -56,13 +56,38 @@ export async function POST(req: Request) {
     userId: who.userId,
     displayName: who.displayName ?? "網站訪客",
   });
-  await respond(conversation.id, { visitorId: who.visitorId, currentPath: parsed.data.path });
 
-  const messages: PublicMessage[] = await prisma.message.findMany({
-    where: { conversationId: conversation.id, createdAt: { gte: message.createdAt } },
-    orderBy: { createdAt: "asc" },
-    select: publicFields,
-  });
-  const status = (await prisma.conversation.findUniqueOrThrow({ where: { id: conversation.id }, select: { status: true } })).status;
-  return NextResponse.json({ status, messages });
+  const finish = async () => {
+    const messages: PublicMessage[] = await prisma.message.findMany({
+      where: { conversationId: conversation.id, createdAt: { gte: message.createdAt } },
+      orderBy: { createdAt: "asc" },
+      select: publicFields,
+    });
+    const status = (await prisma.conversation.findUniqueOrThrow({ where: { id: conversation.id }, select: { status: true } })).status;
+    return { status, messages };
+  };
+
+  // 聊天視窗要求串流：每做一步就送一行 JSON（例如 {"type":"progress","label":"找商品中"}），最後送完整回覆
+  if (req.headers.get("accept")?.includes("application/x-ndjson")) {
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      async start(controller) {
+        const send = (obj: object) => controller.enqueue(encoder.encode(JSON.stringify(obj) + "\n"));
+        try {
+          await respond(conversation.id, { visitorId: who.visitorId, currentPath: parsed.data.path, onProgress: (label) => send({ type: "progress", label }) });
+          send({ type: "done", ...(await finish()) });
+        } catch (e) {
+          console.error("[chat] respond failed", e);
+          send({ type: "error", error: "系統忙碌中，請稍後再試" });
+        } finally {
+          controller.close();
+        }
+      },
+    });
+    return new Response(stream, { headers: { "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-store" } });
+  }
+
+  // 一般 JSON（其他程式呼叫用）
+  await respond(conversation.id, { visitorId: who.visitorId, currentPath: parsed.data.path });
+  return NextResponse.json(await finish());
 }

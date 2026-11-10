@@ -31,6 +31,7 @@ export async function POST(req: Request) {
     displayName: session.user.name,
     text: `（已用按鈕加入購物車）${v?.product.slug.split("-")[0].toUpperCase()} ${v?.product.name} ${v?.color} / ${v?.size} × ${parsed.data.quantity}`,
   });
+  await prisma.chatEvent.create({ data: { userId: session.user.id, type: "picker_add", source: "picker" } });
   const cart = await prisma.cartItem.aggregate({ where: { userId: session.user.id }, _sum: { quantity: true } });
   revalidatePath("/", "layout");
   return NextResponse.json({

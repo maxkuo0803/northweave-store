@@ -43,7 +43,33 @@ class StepLog {
   }
 }
 
-export type RespondOptions = DeliverOptions & { visitorId?: string | null; currentPath?: string | null };
+export type RespondOptions = DeliverOptions & {
+  visitorId?: string | null;
+  currentPath?: string | null;
+  onProgress?: (label: string) => void; // 每做一步就通知（網站聊天視窗即時顯示「找商品中…」）
+};
+
+// 工具 → 顯示給顧客看的進度文字
+const PROGRESS_LABEL: Record<string, string> = {
+  search_products: "找商品中",
+  get_product: "查看商品資訊",
+  recommend_products: "挑選搭配中",
+  search_knowledge: "查詢資料中",
+  get_store_policies: "查詢規則中",
+  list_my_orders: "查詢訂單中",
+  get_order_detail: "查詢訂單中",
+  check_return_options: "檢查退換貨資格",
+  list_my_returns: "查詢退換貨進度",
+  view_cart: "查看購物車",
+  add_to_cart: "加入購物車中",
+  update_cart_item: "更新購物車",
+  show_variant_picker: "準備顏色尺寸",
+  list_addresses: "查詢收件地址",
+  propose_order: "整理訂單內容",
+  propose_return: "整理退換貨內容",
+  confirm_pending_action: "處理中",
+  handoff_to_human: "轉接真人客服",
+};
 
 export async function respond(conversationId: string, opts: RespondOptions = {}) {
   const conv = await prisma.conversation.findUnique({ where: { id: conversationId }, include: { user: { select: { name: true, email: true } } } });
@@ -105,6 +131,7 @@ export async function respond(conversationId: string, opts: RespondOptions = {})
   try {
     for (let round = 0; round < LIMITS.maxToolRounds; round++) {
       const t0 = Date.now();
+      opts.onProgress?.(round === 0 ? "小織想一下" : "整理回覆中");
       const res = await callModel(messages, !!conv.pendingAction);
       const textOut = res.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("\n");
       const toolUses = res.content.filter((b): b is Anthropic.ToolUseBlock => b.type === "tool_use");
@@ -126,6 +153,7 @@ export async function respond(conversationId: string, opts: RespondOptions = {})
       messages.push({ role: "assistant", content: res.content });
       const results: Anthropic.ToolResultBlockParam[] = [];
       for (const tu of toolUses) {
+        if (PROGRESS_LABEL[tu.name]) opts.onProgress?.(PROGRESS_LABEL[tu.name]);
         const t1 = Date.now();
         const r = await runTool(tu.name, tu.input, ctx);
         await log.add("TOOL", tu.name, { input: tu.input, output: r.result as object, latencyMs: Date.now() - t1 });

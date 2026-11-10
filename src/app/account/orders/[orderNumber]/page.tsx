@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AskChips } from "@/components/chat/AskChips";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/session";
 import { CANCELLABLE, getOrderForUser, returnEligibility, virtualAccount } from "@/lib/orders";
@@ -134,7 +135,16 @@ export default async function OrderDetailPage({ params, searchParams }: PageProp
                 <button className="btn-danger w-full">取消訂單</button>
               </form>
             )}
-            <Link href="/faq" className="block text-center text-xs text-muted underline">有問題？查看常見問題</Link>
+            <AskChips
+              className="border-t border-line pt-3"
+              source="order-chip"
+              title="這筆訂單有問題？"
+              questions={[
+                { label: "物流到哪了", text: `訂單 ${order.orderNumber} 的物流到哪了？` },
+                ...(eligible.ok ? [{ label: "幫我退換貨", text: `訂單 ${order.orderNumber} 我想退換貨` }] : []),
+                ...(CANCELLABLE.includes(order.status) ? [{ label: "幫我取消", text: `我想取消訂單 ${order.orderNumber}` }] : []),
+              ]}
+            />
           </div>
         </aside>
       </div>

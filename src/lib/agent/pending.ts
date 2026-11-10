@@ -94,6 +94,7 @@ export async function confirmPending(ctx: AgentContext) {
       }
       const r = await placeOrder(uid, pending.payload);
       if (!r.ok) return r;
+      await prisma.chatEvent.create({ data: { userId: uid, type: "order_placed", source: ctx.channel, value: r.total } });
       ctx.effects.links.push({ label: "查看訂單", href: `/account/orders/${r.orderNumber}` });
       return { ok: true, orderNumber: r.orderNumber, total: r.total, url: siteUrl(`/account/orders/${r.orderNumber}`), next: "告訴顧客訂單已成立、訂單編號與金額；ATM 付款要提醒 3 天內轉帳（帳號在訂單頁）。" };
     }

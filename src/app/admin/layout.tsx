@@ -6,6 +6,7 @@ const LINKS = [
   { href: "/admin", label: "總覽" },
   { href: "/admin/inbox", label: "客服中心" },
   { href: "/admin/knowledge", label: "AI 知識庫" },
+  { href: "/admin/assistant", label: "小織成效" },
   { href: "/admin/orders", label: "訂單管理" },
   { href: "/admin/returns", label: "退換貨" },
   { href: "/admin/products", label: "商品與庫存" },

@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Fragment, useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { cn } from "@/lib/utils";
 import { BotAvatar } from "./BotAvatar";
+import { track, type AskDetail, type HintDetail } from "./ask";
 
 // 右下角的客服聊天視窗 + 主動推薦泡泡。
 // - 打開時每 4 秒問一次有沒有新訊息（真人客服的回覆也是這樣收到）
@@ -20,9 +21,91 @@ type Msg = { id: string; role: "CUSTOMER" | "AI" | "STAFF" | "SYSTEM"; content: 
 type NudgeProduct = { slug: string; code: string; name: string; price: number; onSale: boolean; image: string };
 type Nudge = { message: string; products: NudgeProduct[] };
 
-const QUICK = ["我的訂單到哪了？", "我想退換貨", "幫我推薦搭配", "運費怎麼算？"];
+// 依顧客在哪一頁，小織的開場白和「一點就問」的問題都不一樣（像店員看你在看什麼才開口）
+type Quick = { label: string; text: string };
+function pageContext(path: string): { greeting: string; short: string; quick: Quick[] } {
+  const code = path.match(/^\/products\/(nw\d+)/i)?.[1]?.toUpperCase();
+  if (code) {
+    return {
+      greeting: `在看 ${code} 嗎？尺寸、搭配、材質都可以問我。`,
+      short: "尺寸、搭配都可以問我",
+      quick: [
+        { label: "幫我挑尺寸", text: `幫我挑 ${code} 的尺寸` },
+        { label: "這件怎麼搭", text: `${code} 怎麼搭配？` },
+        { label: "會不會透、好不好洗", text: `${code} 的材質會不會透？好不好洗？` },
+      ],
+    };
+  }
+  const order = path.match(/^\/account\/orders\/(NW\d+)/i)?.[1]?.toUpperCase();
+  if (order) {
+    return {
+      greeting: `訂單 ${order} 想問什麼？`,
+      short: "這筆訂單有問題？問我",
+      quick: [
+        { label: "物流到哪了", text: `訂單 ${order} 的物流到哪了？` },
+        { label: "我想退換貨", text: `訂單 ${order} 我想退換貨` },
+        { label: "取消訂單", text: `我想取消訂單 ${order}` },
+      ],
+    };
+  }
+  if (path === "/cart" || path === "/checkout") {
+    return {
+      greeting: "結帳前有什麼要幫忙的嗎？",
+      short: "結帳前有問題？問我",
+      quick: [
+        { label: "幫我湊免運", text: "幫我湊免運，推薦剛好補上差額的商品" },
+        { label: "幫我結帳", text: "幫我結帳" },
+        { label: "有優惠碼嗎", text: "現在有什麼優惠碼可以用？" },
+      ],
+    };
+  }
+  if (path.startsWith("/account")) {
+    return {
+      greeting: "會員的事都可以交給我。",
+      short: "訂單、退換貨都能問我",
+      quick: [
+        { label: "我的訂單到哪了", text: "我的訂單到哪了？" },
+        { label: "我想退換貨", text: "我想退換貨" },
+        { label: "看我的購物車", text: "我的購物車有什麼？" },
+      ],
+    };
+  }
+  if (path.startsWith("/products")) {
+    return {
+      greeting: "在找什麼樣的衣服？用說的就好。",
+      short: "說出想找的，我幫你找",
+      quick: [
+        { label: "約會穿搭", text: "推薦適合約會穿的衣服" },
+        { label: "下雨天的外套", text: "下雨天穿的外套有推薦嗎？" },
+        { label: "上班也能穿", text: "推薦上班也能穿的衣服" },
+      ],
+    };
+  }
+  return {
+    greeting: "歡迎光臨！我是店員小織，找衣服、問尺寸、查訂單都可以問我。",
+    short: "歡迎光臨！有問題問我",
+    quick: [
+      { label: "幫我推薦", text: "幫我推薦幾件好搭的衣服" },
+      { label: "我的訂單到哪了", text: "我的訂單到哪了？" },
+      { label: "運費怎麼算", text: "運費怎麼算？" },
+    ],
+  };
+}
+
+// 招呼泡泡：進站後 3.5 秒出現、9 秒後自己收起，一次瀏覽只打一次招呼（不擋畫面、不打擾）
+const GREET_DELAY = 3500;
+const GREET_SHOW_MS = 9000;
 const NUDGE_DELAY = (path: string) => (path === "/cart" ? 5000 : path.startsWith("/products/") ? 9000 : 25000);
 const MAX_NUDGES_PER_SESSION = 3;
+
+// 螢幕寬度小於 1400px（手機、筆電）：頁面右邊沒有空白，招呼改成一行小標籤，不蓋到商品和按鈕
+const NARROW = "(max-width: 1399px)";
+const subscribeNarrow = (cb: () => void) => {
+  const m = window.matchMedia(NARROW);
+  m.addEventListener("change", cb);
+  return () => m.removeEventListener("change", cb);
+};
+const useNarrow = () => useSyncExternalStore(subscribeNarrow, () => window.matchMedia(NARROW).matches, () => false);
 
 // localStorage / sessionStorage 在無痕模式可能會丟錯，包起來
 const store = {
@@ -48,6 +131,12 @@ export function ChatWidget({ siteOrigin }: { siteOrigin: string }) {
   const setNudge = (n: null) => setNudgeState(n);
   const listRef = useRef<HTMLDivElement>(null);
   const lastAt = useRef<string | null>(null);
+  const ctx = pageContext(pathname);
+  // 招呼泡泡 / 猶豫時的提示泡泡（像店員走過來問一句）
+  const [bubble, setBubble] = useState<{ path: string; kind: "greet" | "hint"; message: string; short: string; quick: Quick[]; source: string } | null>(null);
+  const shownBubble = bubble?.path === pathname && !open ? bubble : null;
+  const narrow = useNarrow();
+  const [progress, setProgress] = useState<string | null>(null); // 小織正在做什麼（即時顯示）
 
   const merge = useCallback((incoming: Msg[]) => {
     if (!incoming.length) return;
@@ -94,9 +183,73 @@ export function ChatWidget({ siteOrigin }: { siteOrigin: string }) {
       store.set(ss(), key, "1");
       store.set(ss(), "nw_nudge_count", String(shown + 1));
       setNudgeState({ path: pathname, nudge: data.nudge });
+      track("nudge_shown");
     }, NUDGE_DELAY(pathname));
     return () => clearTimeout(t);
   }, [pathname, open]);
+
+  // 記一筆「來逛了」（一次瀏覽一筆），後台才算得出使用率
+  useEffect(() => {
+    if (pathname.startsWith("/admin") || store.get(ss(), "nw_visit")) return;
+    store.set(ss(), "nw_visit", "1");
+    track("visit");
+  }, [pathname]);
+
+  // 進站打招呼（一次瀏覽一次；已經打開過小織或在後台就不打擾）
+  useEffect(() => {
+    if (open || pathname.startsWith("/admin") || store.get(ss(), "nw_greeted")) return;
+    const t = setTimeout(() => {
+      if (store.get(ss(), "nw_greeted")) return;
+      store.set(ss(), "nw_greeted", "1");
+      const c = pageContext(pathname);
+      setBubble({ path: pathname, kind: "greet", message: c.greeting, short: c.short, quick: c.quick.slice(0, 2), source: "greet" });
+      track("greet_shown");
+    }, GREET_DELAY);
+    return () => clearTimeout(t);
+  }, [pathname, open]);
+
+  // 招呼泡泡過一陣子自己收起來（顧客沒理它就不要一直佔著畫面）
+  useEffect(() => {
+    if (bubble?.kind !== "greet") return;
+    const t = setTimeout(() => setBubble((b) => (b?.kind === "greet" ? null : b)), GREET_SHOW_MS);
+    return () => clearTimeout(t);
+  }, [bubble]);
+
+  // 像店員：打完招呼，顧客開始逛（捲動超過 120px）就自己退開
+  useEffect(() => {
+    if (bubble?.kind !== "greet") return;
+    const startY = window.scrollY;
+    const onScroll = () => {
+      if (Math.abs(window.scrollY - startY) > 120) setBubble((b) => (b?.kind === "greet" ? null : b));
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [bubble]);
+
+  // 網站其他地方叫小織（商品頁的「問小織」按鈕、搜尋找不到、購物車…）
+  const sendRef = useRef<(text: string) => void>(() => {});
+  useEffect(() => {
+    const onAsk = (e: Event) => {
+      const d = (e as CustomEvent<AskDetail>).detail;
+      setBubble(null);
+      setOpen(true);
+      track("open", d.source);
+      if (d.text) setTimeout(() => sendRef.current(d.text!), 50);
+    };
+    const onHint = (e: Event) => {
+      const d = (e as CustomEvent<HintDetail>).detail;
+      if (store.get(ss(), `nw_hint:${d.key}`) || store.get(ls(), "nw_nudge_off")) return;
+      store.set(ss(), `nw_hint:${d.key}`, "1");
+      setBubble({ path: window.location.pathname, kind: "hint", message: d.message, short: d.short, quick: [{ label: d.askLabel, text: d.askText }], source: d.source });
+      track("hint_shown", d.source);
+    };
+    window.addEventListener("nw:ask", onAsk);
+    window.addEventListener("nw:hint", onHint);
+    return () => {
+      window.removeEventListener("nw:ask", onAsk);
+      window.removeEventListener("nw:hint", onHint);
+    };
+  }, []);
 
   async function send(text: string) {
     const t = text.trim();
@@ -108,26 +261,55 @@ export function ChatWidget({ siteOrigin }: { siteOrigin: string }) {
     const temp: Msg = { id: `temp-${Date.now()}`, role: "CUSTOMER", content: t, createdAt: new Date().toISOString() };
     setMessages((m) => [...m, temp]);
     try {
-      const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: t, path: pathname }) });
-      const data = await res.json();
-      setMessages((m) => m.filter((x) => x.id !== temp.id));
-      if (!res.ok) {
+      // 用串流方式：伺服器每做一步就傳一行回來（例如「找商品中…」），最後才傳完整回覆
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/x-ndjson" },
+        body: JSON.stringify({ text: t, path: pathname }),
+      });
+      if (!res.ok || !res.body) {
+        const data = await res.json().catch(() => ({}));
+        setMessages((m) => m.filter((x) => x.id !== temp.id));
         setError(data.error ?? "傳送失敗，請再試一次");
         setInput(t);
         return;
       }
-      setStatus(data.status);
-      merge(data.messages);
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      let done: { status: string; messages: Msg[] } | null = null;
+      for (;;) {
+        const { value, done: end } = await reader.read();
+        if (value) buf += decoder.decode(value, { stream: true });
+        const lines = buf.split("\n");
+        buf = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const ev = JSON.parse(line) as { type: "progress"; label: string } | { type: "done"; status: string; messages: Msg[] } | { type: "error"; error: string };
+          if (ev.type === "progress") setProgress(ev.label);
+          else if (ev.type === "done") done = ev;
+          else throw new Error(ev.error);
+        }
+        if (end) break;
+      }
+      setMessages((m) => m.filter((x) => x.id !== temp.id));
+      if (!done) throw new Error("沒有收到回覆");
+      setStatus(done.status);
+      merge(done.messages);
       // 小織幫忙加了購物車 / 下了單 → 重新整理頁面資料（右上角購物車數量、購物車頁會更新）
-      if ((data.messages as Msg[]).some((m) => m.attachments?.refresh)) router.refresh();
+      if (done.messages.some((m) => m.attachments?.refresh)) router.refresh();
     } catch {
       setMessages((m) => m.filter((x) => x.id !== temp.id));
       setError("網路好像斷了，請再試一次");
       setInput(t);
     } finally {
       setSending(false);
+      setProgress(null);
     }
   }
+  useEffect(() => {
+    sendRef.current = send;
+  });
 
   // 選擇器直接加入購物車後：把「已加入」紀錄顯示在對話裡，並更新右上角購物車數量
   const onAdded = useCallback((note: Msg) => {
@@ -139,12 +321,40 @@ export function ChatWidget({ siteOrigin }: { siteOrigin: string }) {
 
   return (
     <div className="fixed right-3 bottom-3 z-50 flex flex-col items-end gap-1 print:hidden">
+      {shownBubble && !nudge && narrow && (
+        <ClerkTag
+          message={shownBubble.short}
+          onClick={() => {
+            const q = shownBubble.quick[0];
+            setBubble(null);
+            setOpen(true);
+            track(shownBubble.kind === "greet" ? "greet_click" : "hint_click", shownBubble.source);
+            if (shownBubble.kind === "hint" && q) setTimeout(() => sendRef.current(q.text), 50);
+          }}
+          onClose={() => setBubble(null)}
+        />
+      )}
+
+      {shownBubble && !nudge && !narrow && (
+        <ClerkBubble
+          message={shownBubble.message}
+          quick={shownBubble.quick}
+          onPick={(q) => {
+            setBubble(null);
+            setOpen(true);
+            track(shownBubble.kind === "greet" ? "greet_click" : "hint_click", shownBubble.source);
+            setTimeout(() => sendRef.current(q.text), 50);
+          }}
+          onClose={() => setBubble(null)}
+        />
+      )}
+
       {nudge && !open && (
         <NudgeCard
           nudge={nudge}
           onClose={() => setNudge(null)}
           onMute={() => { store.set(ls(), "nw_nudge_off", "1"); setNudge(null); }}
-          onAsk={() => { setNudge(null); setOpen(true); send("剛剛推薦的這幾件，要怎麼搭配比較好？"); }}
+          onAsk={() => { setNudge(null); setOpen(true); track("open", "nudge"); send("剛剛推薦的這幾件，要怎麼搭配比較好？"); }}
         />
       )}
 
@@ -175,7 +385,7 @@ export function ChatWidget({ siteOrigin }: { siteOrigin: string }) {
               <div className="flex items-start gap-2">
                 <BotAvatar className="mt-0.5 h-8 w-8" />
                 <div className="rounded-2xl rounded-tl-md bg-card p-3 text-sm leading-relaxed shadow-sm">
-                  你好，我是北織客服小織！可以問我商品尺寸、搭配推薦、訂單進度，或直接幫你申請退換貨。
+                  {ctx.greeting}
                   <p className="mt-2 text-xs text-muted">請不要在對話中提供信用卡號或密碼。</p>
                 </div>
               </div>
@@ -186,10 +396,13 @@ export function ChatWidget({ siteOrigin }: { siteOrigin: string }) {
             {sending && (
               <div className="flex items-center gap-2" role="status">
                 <BotAvatar className="h-8 w-8" thinking />
-                <span className="flex gap-1 rounded-2xl rounded-tl-md bg-card px-3.5 py-3 shadow-sm" aria-label="小織正在查詢">
-                  {[0, 1, 2].map((i) => (
-                    <span key={i} className="h-1.5 w-1.5 animate-bounce rounded-full bg-ink/50 motion-reduce:animate-none" style={{ animationDelay: `${i * 150}ms` }} />
-                  ))}
+                <span className="flex items-center gap-2 rounded-2xl rounded-tl-md bg-card px-3.5 py-2.5 shadow-sm">
+                  <span className="flex gap-1" aria-hidden>
+                    {[0, 1, 2].map((i) => (
+                      <span key={i} className="h-1.5 w-1.5 animate-bounce rounded-full bg-ink/50 motion-reduce:animate-none" style={{ animationDelay: `${i * 150}ms` }} />
+                    ))}
+                  </span>
+                  <span className="text-xs text-muted">{progress ?? "小織想一下"}</span>
                 </span>
               </div>
             )}
@@ -197,9 +410,9 @@ export function ChatWidget({ siteOrigin }: { siteOrigin: string }) {
 
           {messages.length === 0 && (
             <div className="flex flex-wrap gap-1.5 border-t border-line bg-card px-3 py-2">
-              {QUICK.map((q) => (
-                <button key={q} onClick={() => send(q)} className="rounded-sm border border-ink/25 px-2 py-1 text-xs font-bold hover:border-ink">
-                  {q}
+              {ctx.quick.map((q) => (
+                <button key={q.label} onClick={() => send(q.text)} className="rounded-full border border-ink/20 px-3 py-1 text-xs font-bold hover:border-ink">
+                  {q.label}
                 </button>
               ))}
             </div>
@@ -225,14 +438,18 @@ export function ChatWidget({ siteOrigin }: { siteOrigin: string }) {
       {!open && (
         // 只有小織本人浮在右下角：滑鼠移上去會歪頭，旁邊冒出「問小織」吊牌
         <button
-          onClick={() => setOpen(true)}
+          onClick={() => {
+            setOpen(true);
+            setBubble(null);
+            track("open", "avatar");
+          }}
           aria-label="開啟客服對話，AI 客服小織"
           className="group relative flex items-center rounded-sm outline-offset-4"
         >
           <span className="kraft-tag pointer-events-none absolute right-full mr-1 translate-x-2 px-2.5 py-1 text-sm font-black whitespace-nowrap opacity-0 transition-[opacity,transform] duration-200 group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100 motion-reduce:transition-none">
             問小織
           </span>
-          <span className={cn("block", nudge ? "bot-hop" : "bot-float")}>
+          <span className={cn("block", nudge || shownBubble ? "bot-hop" : "bot-float")}>
             <BotAvatar className="h-[76px] w-[76px] transition-transform duration-300 group-hover:-rotate-8 motion-reduce:transition-none" />
           </span>
         </button>
@@ -461,6 +678,47 @@ function VariantPicker({ p, onAdded, onClose }: { p: Card; onAdded: (note: Msg) 
         </div>
       </div>
     </div>
+  );
+}
+
+// 窄螢幕的招呼：頭像旁邊一行小標籤，點了才打開（不蓋住商品）
+function ClerkTag({ message, onClick, onClose }: { message: string; onClick: () => void; onClose: () => void }) {
+  return (
+    <div className="mr-2 -mb-1 flex max-w-[calc(100vw-1.5rem)] animate-[nudge-in_420ms_cubic-bezier(0.22,1,0.36,1)] items-center gap-1 rounded-full bg-ink py-1 pr-1 pl-3.5 text-xs font-bold text-white shadow-lg">
+      <button onClick={onClick} className="truncate py-1">{message}</button>
+      <button onClick={onClose} aria-label="關閉" className="shrink-0 rounded-full p-1.5 hover:bg-white/15">
+        <CloseIcon className="h-3 w-3" />
+      </button>
+    </div>
+  );
+}
+
+// 店員式的小對話框：一句話 + 一兩個「一點就問」的按鈕，從小織頭上冒出來，不擋畫面
+function ClerkBubble({ message, quick, onPick, onClose }: { message: string; quick: Quick[]; onPick: (q: Quick) => void; onClose: () => void }) {
+  return (
+    <aside
+      role="status"
+      className="card relative mr-3 mb-1 w-[min(290px,calc(100vw-2.5rem))] origin-bottom-right animate-[nudge-in_420ms_cubic-bezier(0.22,1,0.36,1)] px-4 pt-3.5 pb-3"
+    >
+      <button onClick={onClose} aria-label="關閉" className="absolute top-2 right-2 rounded-full p-1 text-muted hover:bg-ink/5 hover:text-ink">
+        <CloseIcon className="h-3.5 w-3.5" />
+      </button>
+      <p className="pr-5 text-sm leading-snug font-bold">{message}</p>
+      <div className="mt-2.5 flex flex-wrap gap-1.5">
+        {quick.map((q, i) => (
+          <button
+            key={q.label}
+            onClick={() => onPick(q)}
+            className={cn("rounded-full px-3 py-1.5 text-xs font-bold", i === 0 ? "bg-ink text-white hover:bg-black" : "border border-ink/20 hover:border-ink")}
+          >
+            {q.label}
+          </button>
+        ))}
+      </div>
+      <svg aria-hidden viewBox="0 0 20 14" className="absolute right-7 -bottom-[13px] h-3.5 w-5 text-card drop-shadow-[0_2px_1px_rgb(0_0_0/.08)]">
+        <path d="M0 0 H20 L14 13 Q13 14 12 12 Z" fill="currentColor" />
+      </svg>
+    </aside>
   );
 }
 

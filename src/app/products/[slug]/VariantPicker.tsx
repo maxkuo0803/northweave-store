@@ -1,11 +1,13 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { addToCartAction } from "@/app/cart/actions";
 import { Hook } from "@/components/ProductCard";
 import { PAYMENT_METHOD_LABEL, RETURN_WINDOW_DAYS, SHIPPING, formatPrice } from "@/lib/store-config";
 import { cn } from "@/lib/utils";
+import { AskChips } from "@/components/chat/AskChips";
+import { hintXiaozhi } from "@/components/chat/ask";
 
 type Variant = { id: string; color: string; colorHex: string; size: string; stock: number };
 type Image = { url: string; alt: string; color: string | null };
@@ -44,6 +46,17 @@ export function VariantPicker({
   const [color, setColor] = useState(colors[0]?.[0]);
   const [size, setSize] = useState<string | undefined>(sizes.length === 1 ? sizes[0] : undefined);
   const [qty, setQty] = useState(1);
+  // 顧客在尺寸之間點來點去（換了 3 次以上）或打開尺寸表 → 小織走過來問一句（一件商品只問一次）
+  const sizeClicks = useRef(0);
+  const hesitate = () =>
+    hintXiaozhi({
+      key: `size:${code}`,
+      message: "尺寸拿不定主意嗎？告訴我身高體重，我幫你挑。",
+      short: "尺寸拿不定？我幫你挑",
+      askLabel: "幫我挑尺寸",
+      askText: `幫我挑 ${code} 的尺寸`,
+      source: "size-hesitation",
+    });
   const [state, action, pending] = useActionState(addToCartAction, undefined);
 
   const selected = variants.find((v) => v.color === color && v.size === size);
@@ -136,7 +149,7 @@ export function VariantPicker({
               <span className="font-bold">尺寸</span>
               <span className="ml-2 text-muted">{size ?? "請選一個"}</span>
             </p>
-            <Link href="#size-guide" className="font-bold underline decoration-ink/30 underline-offset-4 hover:decoration-ink">
+            <Link href="#size-guide" onClick={hesitate} className="font-bold underline decoration-ink/30 underline-offset-4 hover:decoration-ink">
               尺寸表
             </Link>
           </div>
@@ -149,7 +162,10 @@ export function VariantPicker({
                   key={s}
                   type="button"
                   disabled={stock === 0}
-                  onClick={() => setSize(s)}
+                  onClick={() => {
+                    setSize(s);
+                    if (++sizeClicks.current >= 3) hesitate();
+                  }}
                   aria-pressed={on}
                   aria-label={stock === 0 ? `${s} 售完` : s}
                   className={cn(
@@ -167,6 +183,16 @@ export function VariantPicker({
             })}
           </div>
           {selected && selected.stock > 0 && selected.stock <= 4 && <p className="mt-3 text-sm font-bold text-warn">這個尺寸只剩 {selected.stock} 件</p>}
+          {/* 店員就站在尺寸旁邊：不確定就問 */}
+          <AskChips
+            className="mt-4"
+            source="product-chip"
+            questions={[
+              { label: "我該穿哪個尺寸？", text: `幫我挑 ${code} 的尺寸` },
+              { label: "怎麼搭？", text: `${code} 怎麼搭配？` },
+              { label: "會不會透？好洗嗎？", text: `${code} 的材質會不會透？好不好洗？` },
+            ]}
+          />
         </div>
 
         <form action={action} className="flex gap-3">

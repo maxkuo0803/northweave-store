@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AskButton } from "@/components/chat/AskChips";
 import { getSession } from "@/lib/session";
 import { getCart, quote } from "@/lib/pricing";
 import { SHIPPING, formatPrice } from "@/lib/store-config";
@@ -71,6 +72,7 @@ export default async function CartPage() {
             <div className="h-full bg-brand" style={{ width: `${Math.min(100, (q.subtotal / SHIPPING.freeThreshold) * 100)}%` }} />
           </div>
           <p className="text-xs text-muted">運費與優惠碼在下一步結帳時計算</p>
+          {gap > 0 && <AskButton source="cart-freeship" label={`讓小織幫你湊 ${formatPrice(gap)}`} text={`幫我湊免運，還差 ${formatPrice(gap)}，推薦剛好補上差額的商品`} />}
           {blocked ? (
             <button className="btn-primary w-full" disabled>請先處理庫存不足的商品</button>
           ) : (
