@@ -7,6 +7,22 @@ const FRAME_ANCESTORS = (process.env.FRAME_ANCESTORS ?? "https://max-ai-portfoli
   .filter(Boolean)
   .concat(process.env.NODE_ENV === "development" ? ["http://localhost:8765"] : []);
 
+// 作品集的 Vercel 預覽部署網址每次都不同（max-ai-portfolio-<亂碼>-max-0c94.vercel.app），
+// CSP 不支援這種中間有萬用字元的網域，所以改看請求的 Referer：是作品集預覽網址嵌進來的，就把它加進允許名單。
+// 只有 max-0c94 團隊的成員能產生這種網址，瀏覽器也不允許網頁偽造 Referer，所以別的網站無法藉此嵌入本站。
+const PORTFOLIO_PREVIEW = /^https:\/\/max-ai-portfolio-[a-z0-9]+-max-0c94\.vercel\.app$/;
+
+function frameAncestors(request: NextRequest): string[] {
+  const referer = request.headers.get("referer");
+  if (!referer) return FRAME_ANCESTORS;
+  try {
+    const origin = new URL(referer).origin;
+    return PORTFOLIO_PREVIEW.test(origin) ? [...FRAME_ANCESTORS, origin] : FRAME_ANCESTORS;
+  } catch {
+    return FRAME_ANCESTORS;
+  }
+}
+
 // 需要登入才能看的路徑
 const PROTECTED = ["/account", "/admin", "/checkout"];
 
@@ -41,7 +57,7 @@ export function proxy(request: NextRequest) {
     "base-uri 'self'",
     "form-action 'self'",
     // 只准自己和作品集網站用 iframe 嵌入（作品集頁面有一個「北織首頁」視窗），其他網站一律不行（防點擊劫持）
-    `frame-ancestors 'self' ${FRAME_ANCESTORS.join(" ")}`,
+    `frame-ancestors 'self' ${frameAncestors(request).join(" ")}`,
     ...(isDev ? [] : ["upgrade-insecure-requests"]),
   ].join("; ");
 
